@@ -23,9 +23,12 @@ import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.Instance;
 
 import moa.classifiers.AbstractClassifier;
+import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
+import moa.classifiers.core.driftdetection.ChangeDetector;
 import moa.core.Measurement;
 import moa.core.StringUtils;
+import moa.options.ClassOption;
 
 /**
  * IncA-DES
@@ -33,7 +36,11 @@ import moa.core.StringUtils;
  * An incremental and adaptive dynamic ensemble selection
  * approach using online K-d tree neighborhood search for data streams with
  * concept drift
- *
+ *  <p>Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., Robert Sabourin, Rafael M.O. Cruz 
+ *  IncA-DES: An incremental and adaptive dynamic ensemble selection
+ *  approach using online K-d tree neighborhood search for data streams with
+ *  concept drift</p>
+ * 
  * @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * @version $Revision: 1 $
  */
@@ -41,11 +48,24 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     private static final long serialVersionUID = 1L;
 
-    // Opção só para ver no GUI
-    public IntOption parametroExemploOption = new IntOption(
-            "parametroExemplo", 'p',
-            "Descrição do parâmetro que aparecerá no GUI.",
-            10, 1, 100);
+    public ClassOption driftDetectionMethodOption = new ClassOption(
+        "driftDetectionMethod", 'd',
+        "Drift detection method to use.",
+        ChangeDetector.class, "DDM"
+    );
+
+    public ClassOption classifierFactory = new ClassOption(
+        "classifierFactory", 'l',
+        "Classifier method to use.",
+        Classifier.class, "trees.HoeffdingTree"
+    );
+
+    public IntOption windowSize = new IntOption(
+        "windowSize", 'p',
+        "Window size parameter",
+        10, 1, 100
+    );
+
 
     @Override
     public boolean isRandomizable() {
