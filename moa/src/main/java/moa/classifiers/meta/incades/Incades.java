@@ -33,13 +33,11 @@ import moa.options.ClassOption;
 /**
  * IncA-DES
  *
- * An incremental and adaptive dynamic ensemble selection
- * approach using online K-d tree neighborhood search for data streams with
- * concept drift
- *  <p>Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., Robert Sabourin, Rafael M.O. Cruz 
  *  IncA-DES: An incremental and adaptive dynamic ensemble selection
  *  approach using online K-d tree neighborhood search for data streams with
- *  concept drift</p>
+ *  concept drift
+ *  <p>Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., Robert Sabourin, Rafael M.O. Cruz 
+ *  </p>
  * 
  * @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * @version $Revision: 1 $
@@ -105,6 +103,8 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     @Override
     public String getPurposeString() {
-        return "Incades Dummy: classificador de teste que sempre prediz a classe 0.";
+        return "IncA-DES: An incremental and adaptive dynamic ensemble selection\n" + //
+            "approach using online K-d tree neighborhood search for data streams with\n" + //
+            "concept drift";
     }
 }
