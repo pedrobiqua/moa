@@ -67,12 +67,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private ChangeDetector driftDetector;
     private Classifier classifier; // Não vai ser assim, vou ter que montar a pool de classificadores
 
-    public Incades() {
-        this.driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
-        this.classifier = (Classifier) getPreparedClassOption(this.classifierOption);
-    }
-
-
     @Override
     public boolean isRandomizable() {
         return false;
@@ -90,7 +84,8 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     @Override
     public void resetLearningImpl() {
-        // Nada a resetar no dummy
+        this.driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
+        this.classifier = (Classifier) getPreparedClassOption(this.classifierOption);
     }
 
     @Override
