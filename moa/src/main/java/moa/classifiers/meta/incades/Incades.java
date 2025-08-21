@@ -139,3 +139,70 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             "concept drift";
     }
 }
+
+// package com.estudos;
+
+// import java.util.ArrayList;
+// import java.util.Comparator;
+// import java.util.List;
+
+// // Montar aqui o algoritmo kdtree
+// public class KDTree {
+
+//     public class KDNode {
+//         ArrayList<Integer> values;
+//         KDNode left;
+//         KDNode right;
+
+//         public KDNode(ArrayList<Integer> values) {
+//             left = null;
+//             right = null;
+//             this.values = values;
+//         }
+//     }
+
+//     public KDNode buildKDTree(List<ArrayList<Integer>> values, int depth, int k) {
+//         if (values.isEmpty()) return null;
+
+//         int axis = depth % k;
+
+//         // Ordena pela coordenada 'axis'
+//         values.sort(Comparator.comparingInt(p -> p.get(axis)));
+
+//         int median = values.size() / 2;
+
+//         KDNode node = new KDNode(values.get(median));
+
+//         node.left = buildKDTree(values.subList(0, median), depth + 1, k);
+//         node.right = buildKDTree(values.subList(median + 1, values.size()), depth + 1, k);
+
+//         return node;
+//     }
+
+//     private int nodeId = 0;
+
+//     public void printDot(KDNode root) {
+//         System.out.println("digraph KDTree {");
+//         printDotRecursive(root);
+//         System.out.println("}");
+//     }
+
+//     private void printDotRecursive(KDNode node) {
+//         if (node == null) return;
+
+//         int currentId = nodeId++;
+//         System.out.println(String.format("node%d [label=\"%s\"];", currentId, node.values));
+
+//         if (node.left != null) {
+//             int leftId = nodeId;
+//             printDotRecursive(node.left);
+//             System.out.println(String.format("node%d -> node%d;", currentId, leftId));
+//         }
+
+//         if (node.right != null) {
+//             int rightId = nodeId;
+//             printDotRecursive(node.right);
+//             System.out.println(String.format("node%d -> node%d;", currentId, rightId));
+//         }
+//     }
+// }
