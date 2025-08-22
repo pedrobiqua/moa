@@ -7,6 +7,20 @@ import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
 
 public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeighborSearch {
 
+    private class Node {
+        Instance instance;
+        Node left;
+        Node right;
+        int splitDim;
+
+        public Node(Instance inst, int splitDim) {
+            this.left = null;
+            this.right = null;
+            this.instance = inst;
+            this.splitDim = splitDim;    
+        }
+    }
+
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
 
@@ -51,12 +65,16 @@ public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeig
 
     private void buildKDTreeBalanced(Instances instances, int i) {
         // 1 if sizeOf(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠) == 0 then
+        if (instances.size() == 0) return;
         // 2 return null
         // 3 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝐿𝑒𝑓 𝑡 ← ∅
         // 4 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝑅𝑖𝑔ℎ𝑡 ← ∅
-        // 5 𝑚𝑒𝑑𝑖𝑎𝑛 ← getMedian(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠, 𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑛𝑠𝑖𝑜𝑛) ; ⊳ Get the
-        // median of the current split dimension
+        // 5 𝑚𝑒𝑑𝑖𝑎𝑛 ← getMedian(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠, 𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑛𝑠𝑖𝑜𝑛) ; ⊳ Get the median of the current split dimension
+        Integer median = this.getMedian(instances, i);
         // 6 foreach 𝐼 ∈ 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠 do
+        for (int j = 0; j < instances.size(); j++) {
+            Instance instance = instances.get(j);
+        }
         // 7 ⊳ Values lower than the median go to the left
         // subtree, and values greater or equal to the
         // right
@@ -71,17 +89,11 @@ public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeig
         // (𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑠𝑖𝑜𝑛 + 1) mod 𝐾)
         // 16 𝑛𝑜𝑑𝑒.𝑟𝑖𝑔ℎ𝑡 ← Build K-d Tree(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝑅𝑖𝑔ℎ𝑡,
         // (𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑛𝑠𝑖𝑜𝑛 + 1) mod 𝐾)
-        // 17 return 𝑛𝑜𝑑𝑒
-
-        if (instances.size() == 0) {
-            return;
-        }
-
-        Integer median = this.getMedian(instances, i);
+        // 17 return 𝑛𝑜𝑑𝑒}
     }
 
     private Integer getMedian(Instances instances, Integer splitDimension) {
-
+        // Todo: Make get Median
         return 0;
     }
 
