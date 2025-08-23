@@ -19,8 +19,13 @@
  */
 package moa.classifiers.meta.incades;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import com.github.javacliparser.IntOption;
 import com.yahoo.labs.samoa.instances.Instance;
+import com.yahoo.labs.samoa.instances.Instances;
+import com.yahoo.labs.samoa.instances.InstancesHeader;
 
 import moa.classifiers.AbstractClassifier;
 import moa.classifiers.Classifier;
@@ -46,6 +51,20 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     private static final long serialVersionUID = 1L;
 
+    // Control parameters
+    private int trainingCount;
+    private int instanceCount;
+	private boolean warning = false;
+    private int warningLevel = 0;
+
+    // Instances
+    private InstancesHeader header;
+    private Instances DSEW;
+
+    // Classifiers
+    private List<Classifier> poolClassifiers = new LinkedList<Classifier>();
+
+    // Options GUI
     public ClassOption driftDetectionMethodOption = new ClassOption(
         "driftDetectionMethod", 'd',
         "Drift detection method to use.",
@@ -64,8 +83,12 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         10, 2, 200
     );
 
+    public IntOption trainingSize = new IntOption(
+        "TrainingSize", 't', "Training size parameter", 10, 10, 200
+    );
+
     private ChangeDetector driftDetector;
-    private Classifier classifier; // Não vai ser assim, vou ter que montar a pool de classificadores
+    private Classifier defaultClassifier;
 
     @Override
     public boolean isRandomizable() {
@@ -85,14 +108,21 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public void resetLearningImpl() {
         this.driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
-        this.classifier = (Classifier) getPreparedClassOption(this.classifierOption);
+        // Inicialize default classifier
+        this.defaultClassifier = (Classifier) getPreparedClassOption(this.classifierOption);
+        this.poolClassifiers.add(defaultClassifier);
     }
 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
-        // Algoritmo simplificado
+
+        // Se não tiver cria um subset DSEW das instancias
+        if (DSEW == null) {
+            this.DSEW = new Instances(this.header, 0);
+        }
+
         // 1. Atualiza a mudança de conceito
-        Boolean predictionCorrect = this.classifier.correctlyClassifies(inst);
+        Boolean predictionCorrect = this.lastClassifier().correctlyClassifies(inst);
         this.driftDetector.input(predictionCorrect ? 0 : 1);
 
         Boolean driftIsTrue = false;
@@ -100,31 +130,70 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             driftIsTrue = true;
         }
         // 2. 𝐷𝑆𝐸𝑊 ← 𝐷𝑆𝐸𝑊 ∪ 𝐼 ; // Adiciona no DSEW
-        // Aqui vou ter que montar a parte da arvore
+        DSEW.add(inst);
+
+        if (this.driftDetector.getWarningZone() && this.warning == false) {
+            this.warning = true;
+            this.warningLevel = this.instanceCount;
+		}
 
         // 3. Se o tamanho da janela for maior que > W
-        //      𝑟𝑒𝑚𝑜𝑣𝑒𝑂𝑙𝑑𝑒𝑠𝑡𝐼𝑛𝑠𝑡𝑎𝑛𝑐𝑒(𝐷𝑆𝐸𝑊 ) ; // Remove a instancia mais velha
+        if (DSEW.size() > windowSize.getValue()) {
+            // 𝑟𝑒𝑚𝑜𝑣𝑒𝑂𝑙𝑑𝑒𝑠𝑡𝐼𝑛𝑠𝑡𝑎𝑛𝑐𝑒(𝐷𝑆𝐸𝑊 ) ; // Remove a instancia mais velha
+            DSEW.delete(0);
+        }
         // 4. Se o concept drift for detectado
         if (driftIsTrue) {
-
+            //      Reduzir o 𝐷𝑆𝐸𝑊
+            shrinkDSEW();
+            //      𝐶𝑘 ← a new classifier
+            poolClassifiers.add(defaultClassifier);
+            //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
+            poolClassifiers.remove(0); // POR ENQUANTO ESTOU REMOVENDO O PRIMEIRO, SEI QUE NÃO É
+            //      𝐶 ← 𝐶 ∪ 𝐶𝑘
         }
-        //      Reduzir o 𝐷𝑆𝐸𝑊
-        //      𝐶𝑘 ← a new classifier
-        //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
-        //      𝐶 ← 𝐶 ∪ 𝐶𝑘
         // 5. Se o 𝐶𝑘 já foi treinado com 𝐹 instancias
-        //      𝐶𝑘 ← a new classifier
-        //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
-        //      𝐶 ← 𝐶 ∪ 𝐶𝑘
+        if (trainingCount >= trainingSize.getValue()) {
+            //      𝐶𝑘 ← a new classifier
+            poolClassifiers.add(defaultClassifier);
+            //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
+            poolClassifiers.remove(0); // POR ENQUANTO ESTOU REMOVENDO O PRIMEIRO, SEI QUE NÃO É
+            //      𝐶 ← 𝐶 ∪ 𝐶𝑘
+            trainingCount = 0;
+        }
         // 6. 𝐶𝑘 ← 𝑙𝑎𝑡𝑒𝑠𝑡𝐶𝑙𝑎𝑠𝑠𝑖𝑓𝑖𝑒𝑟𝐴𝑣𝑎𝑖𝑙𝑎𝑏𝑙𝑒(𝐶) ; // Pega o ultimo classificador disponivel
         // 7. 𝑡𝑟𝑎𝑖𝑛(𝐶𝑘 , 𝐼) ; // Treina 𝐶𝑘 na instancia de treinamento
-        this.classifier.trainOnInstance(inst);
+        this.lastClassifier().trainOnInstance(inst);
+        trainingCount++;
+		instanceCount++;
+    }
+
+    @Override
+    public void setModelContext(InstancesHeader ih) {
+        super.setModelContext(ih);
+        this.header = ih;
     }
 
     @Override
     protected Measurement[] getModelMeasurementsImpl() {
         return new Measurement[0];
     }
+
+    // Aux methods
+    private Classifier lastClassifier() {
+        return this.poolClassifiers.get(this.poolClassifiers.size() - 1);
+    }
+
+    private void shrinkDSEW() {
+
+		int diff = instanceCount - warningLevel;
+		if (diff < 5 || diff == instanceCount)
+			diff = 5;
+
+		while (DSEW.size() > diff) {
+			DSEW.delete(0);
+		}
+	}
 
     @Override
     public void getModelDescription(StringBuilder out, int indent) {

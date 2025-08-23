@@ -17,9 +17,12 @@ public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeig
             this.left = null;
             this.right = null;
             this.instance = inst;
-            this.splitDim = splitDim;    
+            this.splitDim = splitDim;
         }
     }
+
+    private final int DEPTH = 0;
+    private Node root;
 
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
@@ -41,39 +44,41 @@ public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeig
 
     @Override
     public void update(Instance ins) throws Exception {
-
+        insertKDTreeNode(ins);
         throw new UnsupportedOperationException("Unimplemented method 'update'");
     }
 
     @Override
-    public void removeInstance(Instance inst) throws Exception {
+    public void setInstances(Instances insts) throws Exception {
+        super.setInstances(insts);
+        root = buildKDTreeBalanced(insts, DEPTH);
+    }
 
+    @Override
+    public void removeInstance(Instance inst) throws Exception {
+        removeKDTreeNode(inst);
         throw new UnsupportedOperationException("Unimplemented method 'removeInstance'");
     }
 
     @Override
     public boolean isToRebuild() {
+        // AQUI VAI SER MONTADO A POLITICA DE RECRIAÇÃO DA ARVORE
 
         throw new UnsupportedOperationException("Unimplemented method 'isToRebuild'");
     }
 
-    protected void buildKDTree(Instances instances) {
-        this.buildKDTreeBalanced(instances, 0);
-
-
-    }
-
-    private void buildKDTreeBalanced(Instances instances, int i) {
+    private Node buildKDTreeBalanced(Instances instances, int depth) {
         // 1 if sizeOf(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠) == 0 then
-        if (instances.size() == 0) return;
+        if (instances.size() == 0) return null;
         // 2 return null
         // 3 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝐿𝑒𝑓 𝑡 ← ∅
         // 4 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝑅𝑖𝑔ℎ𝑡 ← ∅
         // 5 𝑚𝑒𝑑𝑖𝑎𝑛 ← getMedian(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠, 𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑛𝑠𝑖𝑜𝑛) ; ⊳ Get the median of the current split dimension
-        Integer median = this.getMedian(instances, i);
+        Integer median = this.getMedian(instances, depth);
+
         // 6 foreach 𝐼 ∈ 𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠 do
-        for (int j = 0; j < instances.size(); j++) {
-            Instance instance = instances.get(j);
+        for (int j = 0; j < instances.numInstances(); j++) {
+            Instance instance = instances.instance(j);
         }
         // 7 ⊳ Values lower than the median go to the left
         // subtree, and values greater or equal to the
@@ -90,11 +95,25 @@ public class KDTreeCamberra extends NearestNeighbourSearch implements StreamNeig
         // 16 𝑛𝑜𝑑𝑒.𝑟𝑖𝑔ℎ𝑡 ← Build K-d Tree(𝑖𝑛𝑠𝑡𝑎𝑛𝑐𝑒𝑠𝑇 𝑜𝑇 ℎ𝑒𝑅𝑖𝑔ℎ𝑡,
         // (𝑠𝑝𝑙𝑖𝑡𝐷𝑖𝑚𝑒𝑛𝑠𝑖𝑜𝑛 + 1) mod 𝐾)
         // 17 return 𝑛𝑜𝑑𝑒}
+        return null;
+    }
+
+    private void insertKDTreeNode(Instance inst){
+        throw new UnsupportedOperationException("Unimplemented method 'isToRebuild'");
+    }
+
+    private void removeKDTreeNode(Instance inst){
+        throw new UnsupportedOperationException("Unimplemented method 'isToRebuild'");
     }
 
     private Integer getMedian(Instances instances, Integer splitDimension) {
         // Todo: Make get Median
         return 0;
+    }
+
+    // Getters and setters
+    public Node getRoot() {
+        return root;
     }
 
 
