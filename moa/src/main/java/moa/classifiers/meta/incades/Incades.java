@@ -31,6 +31,7 @@ import moa.classifiers.AbstractClassifier;
 import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
 import moa.classifiers.core.driftdetection.ChangeDetector;
+import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import moa.options.ClassOption;
@@ -38,16 +39,26 @@ import moa.options.ClassOption;
 /**
  * IncA-DES
  *
- *  IncA-DES: An incremental and adaptive dynamic ensemble selection
- *  approach using online K-d tree neighborhood search for data streams with
- *  concept drift
- *  <p>Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., Robert Sabourin, Rafael M.O. Cruz
- *  </p>
+ * A significant part of this implementation is based on the original code 
+ * developed by Eduardo V.L. Barboza, as part of the research work:
+ *
+ * IncA-DES: An incremental and adaptive dynamic ensemble selection approach 
+ * using online K-d tree neighborhood search for data streams with concept drift
+ * Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., 
+ * Robert Sabourin, Rafael M.O. Cruz
+ *
+ * This version has been adapted and modified by 
+ * Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
+ * to fit into the MOA framework.
  *
  * @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
+    // TODO: Falta fazer o knora
+    // TODO: Falta fazer a parte de prunning dos classificadores
+    // TODO: Revisar o KDTree para ver se está tudo certo
+    // TODO: Falta fazer a parte da previsão
 
     private static final long serialVersionUID = 1L;
 
@@ -63,6 +74,9 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     // Classifiers
     private List<Classifier> poolClassifiers = new LinkedList<Classifier>();
+
+    // Tree
+    private KDTreeCanberra kdTreeCamberra;
 
     // Options GUI
     public ClassOption driftDetectionMethodOption = new ClassOption(
@@ -116,9 +130,12 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
 
-        // Se não tiver cria um subset DSEW das instancias
         if (DSEW == null) {
             this.DSEW = new Instances(this.header, 0);
+        }
+
+        if (kdTreeCamberra == null) {
+            createKDTReeCamberra();
         }
 
         // 1. Atualiza a mudança de conceito
@@ -195,6 +212,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 		}
 	}
 
+    private void createKDTReeCamberra() {
+        this.kdTreeCamberra = new KDTreeCanberra();
+    }
+
     @Override
     public void getModelDescription(StringBuilder out, int indent) {
         StringUtils.appendIndented(out, indent, "Dummy Incades Classifier (sempre prediz classe 0)");
@@ -208,70 +229,3 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             "concept drift";
     }
 }
-
-// package com.estudos;
-
-// import java.util.ArrayList;
-// import java.util.Comparator;
-// import java.util.List;
-
-// // Montar aqui o algoritmo kdtree
-// public class KDTree {
-
-//     public class KDNode {
-//         ArrayList<Integer> values;
-//         KDNode left;
-//         KDNode right;
-
-//         public KDNode(ArrayList<Integer> values) {
-//             left = null;
-//             right = null;
-//             this.values = values;
-//         }
-//     }
-
-//     public KDNode buildKDTree(List<ArrayList<Integer>> values, int depth, int k) {
-//         if (values.isEmpty()) return null;
-
-//         int axis = depth % k;
-
-//         // Ordena pela coordenada 'axis'
-//         values.sort(Comparator.comparingInt(p -> p.get(axis)));
-
-//         int median = values.size() / 2;
-
-//         KDNode node = new KDNode(values.get(median));
-
-//         node.left = buildKDTree(values.subList(0, median), depth + 1, k);
-//         node.right = buildKDTree(values.subList(median + 1, values.size()), depth + 1, k);
-
-//         return node;
-//     }
-
-//     private int nodeId = 0;
-
-//     public void printDot(KDNode root) {
-//         System.out.println("digraph KDTree {");
-//         printDotRecursive(root);
-//         System.out.println("}");
-//     }
-
-//     private void printDotRecursive(KDNode node) {
-//         if (node == null) return;
-
-//         int currentId = nodeId++;
-//         System.out.println(String.format("node%d [label=\"%s\"];", currentId, node.values));
-
-//         if (node.left != null) {
-//             int leftId = nodeId;
-//             printDotRecursive(node.left);
-//             System.out.println(String.format("node%d -> node%d;", currentId, leftId));
-//         }
-
-//         if (node.right != null) {
-//             int rightId = nodeId;
-//             printDotRecursive(node.right);
-//             System.out.println(String.format("node%d -> node%d;", currentId, rightId));
-//         }
-//     }
-// }
