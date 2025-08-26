@@ -59,12 +59,10 @@ import moa.options.ClassOption;
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
-    // TODO: Falta fazer a parte de prunning dos classificadores (Como fazer isso sem fazer gambiarra, quais metricas eu preciso?)
-    //      -> Com isso feito vou poder fazer a parte que falta do algoritmo
+    // TODO: Revisar o Prunning Engine
     // TODO: Revisar o KDTree para ver se está tudo certo
     //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
-    //    -> Isso não vai ser facil pois nem todos tem a função delete
-    // TODO: Falta fazer a parte da previsão, pra isso vou precisar da poda
+    // TODO: Falta fazer a parte de predição
 
     private static final long serialVersionUID = 1L;
 
@@ -126,6 +124,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public double[] getVotesForInstance(Instance inst) {
         // Sempre retorna 100% de probabilidade na classe 0 (dummy)
+        // COLOCAR AQUI A PARTE DE PREDIÇÃO DA CLASSE
         double[] votes = new double[inst.numClasses()];
         if (votes.length > 0) {
             votes[0] = 1.0;
