@@ -23,6 +23,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import com.github.javacliparser.IntOption;
+import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
@@ -31,7 +32,10 @@ import moa.classifiers.AbstractClassifier;
 import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
 import moa.classifiers.core.driftdetection.ChangeDetector;
+import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
+import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
+import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import moa.options.ClassOption;
@@ -39,15 +43,15 @@ import moa.options.ClassOption;
 /**
  * IncA-DES
  *
- * A significant part of this implementation is based on the original code 
+ * A significant part of this implementation is based on the original code
  * developed by Eduardo V.L. Barboza, as part of the research work:
  *
- * IncA-DES: An incremental and adaptive dynamic ensemble selection approach 
+ * IncA-DES: An incremental and adaptive dynamic ensemble selection approach
  * using online K-d tree neighborhood search for data streams with concept drift
- * Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., 
+ * Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr.,
  * Robert Sabourin, Rafael M.O. Cruz
  *
- * This version has been adapted and modified by 
+ * This version has been adapted and modified by
  * Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * to fit into the MOA framework.
  *
@@ -55,10 +59,12 @@ import moa.options.ClassOption;
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
-    // TODO: Falta fazer o knora
-    // TODO: Falta fazer a parte de prunning dos classificadores
+    // TODO: Falta fazer a parte de prunning dos classificadores (Como fazer isso sem fazer gambiarra, quais metricas eu preciso?)
+    //      -> Com isso feito vou poder fazer a parte que falta do algoritmo
     // TODO: Revisar o KDTree para ver se está tudo certo
-    // TODO: Falta fazer a parte da previsão
+    //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
+    //    -> Isso não vai ser facil pois nem todos tem a função delete
+    // TODO: Falta fazer a parte da previsão, pra isso vou precisar da poda
 
     private static final long serialVersionUID = 1L;
 
@@ -76,7 +82,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private List<Classifier> poolClassifiers = new LinkedList<Classifier>();
 
     // Tree
-    private KDTreeCanberra kdTreeCamberra;
+    private NearestNeighbourSearch search;
 
     // Options GUI
     public ClassOption driftDetectionMethodOption = new ClassOption(
@@ -86,10 +92,18 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     );
 
     public ClassOption classifierOption = new ClassOption(
-        "classifier", 'l',
+        "classifierIncremental", 'l',
         "Classifier method to use.",
         Classifier.class, "trees.HoeffdingTree"
     );
+
+    public MultiChoiceOption nearestNeighbourSearchOption = new MultiChoiceOption(
+    "nearestNeighbourSearch", 'n', "Nearest Neighbour Search to use", new String[]{
+        "LinearNN", "KDTree", "KDTreeCanberra"},
+    new String[]{"Brute force search algorithm for nearest neighbour search. ",
+        "KDTree search algorithm for nearest neighbour search",
+        "KDtree search algorithm for nearest neighbour search using Canberra Distance"
+    }, 0);
 
     public IntOption windowSize = new IntOption(
         "windowSize", 'p',
@@ -134,11 +148,12 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             this.DSEW = new Instances(this.header, 0);
         }
 
-        if (kdTreeCamberra == null) {
-            createKDTReeCamberra();
+        // Approach for searching instances
+        if (search == null) {
+            createKDTRee();
         }
 
-        // 1. Atualiza a mudança de conceito
+        // Atualiza a mudança de conceito
         Boolean predictionCorrect = this.lastClassifier().correctlyClassifies(inst);
         this.driftDetector.input(predictionCorrect ? 0 : 1);
 
@@ -146,7 +161,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         if (this.driftDetector.getChange()){
             driftIsTrue = true;
         }
-        // 2. 𝐷𝑆𝐸𝑊 ← 𝐷𝑆𝐸𝑊 ∪ 𝐼 ; // Adiciona no DSEW
+
         DSEW.add(inst);
 
         if (this.driftDetector.getWarningZone() && this.warning == false) {
@@ -154,14 +169,11 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             this.warningLevel = this.instanceCount;
 		}
 
-        // 3. Se o tamanho da janela for maior que > W
         if (DSEW.size() > windowSize.getValue()) {
-            // 𝑟𝑒𝑚𝑜𝑣𝑒𝑂𝑙𝑑𝑒𝑠𝑡𝐼𝑛𝑠𝑡𝑎𝑛𝑐𝑒(𝐷𝑆𝐸𝑊 ) ; // Remove a instancia mais velha
             DSEW.delete(0);
         }
-        // 4. Se o concept drift for detectado
+        // Control classifiers
         if (driftIsTrue) {
-            //      Reduzir o 𝐷𝑆𝐸𝑊
             shrinkDSEW();
             //      𝐶𝑘 ← a new classifier
             poolClassifiers.add(defaultClassifier);
@@ -169,7 +181,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             poolClassifiers.remove(0); // POR ENQUANTO ESTOU REMOVENDO O PRIMEIRO, SEI QUE NÃO É
             //      𝐶 ← 𝐶 ∪ 𝐶𝑘
         }
-        // 5. Se o 𝐶𝑘 já foi treinado com 𝐹 instancias
+
         if (trainingCount >= trainingSize.getValue()) {
             //      𝐶𝑘 ← a new classifier
             poolClassifiers.add(defaultClassifier);
@@ -178,8 +190,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             //      𝐶 ← 𝐶 ∪ 𝐶𝑘
             trainingCount = 0;
         }
-        // 6. 𝐶𝑘 ← 𝑙𝑎𝑡𝑒𝑠𝑡𝐶𝑙𝑎𝑠𝑠𝑖𝑓𝑖𝑒𝑟𝐴𝑣𝑎𝑖𝑙𝑎𝑏𝑙𝑒(𝐶) ; // Pega o ultimo classificador disponivel
-        // 7. 𝑡𝑟𝑎𝑖𝑛(𝐶𝑘 , 𝐼) ; // Treina 𝐶𝑘 na instancia de treinamento
         this.lastClassifier().trainOnInstance(inst);
         trainingCount++;
 		instanceCount++;
@@ -196,7 +206,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         return new Measurement[0];
     }
 
-    // Aux methods
     private Classifier lastClassifier() {
         return this.poolClassifiers.get(this.poolClassifiers.size() - 1);
     }
@@ -212,8 +221,14 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 		}
 	}
 
-    private void createKDTReeCamberra() {
-        this.kdTreeCamberra = new KDTreeCanberra();
+    private void createKDTRee() {
+        if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
+            search = new LinearNNSearch();
+        } else if (this.nearestNeighbourSearchOption.getChosenIndex()== 1) {
+            search = new KDTree();
+        } else {
+            search = new KDTreeCanberra();
+        }
     }
 
     @Override

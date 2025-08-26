@@ -14,6 +14,7 @@
  */
 package moa.classifiers.lazy.neighboursearch;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -33,16 +34,16 @@ import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
  *
  * KDTree using Canberra distance.
  *
- * A significant part of this implementation is based on the original code 
- * developed by Eduardo V.L. Barboza and Paulo R. Lisboa de Almeida, as part 
+ * A significant part of this implementation is based on the original code
+ * developed by Eduardo V.L. Barboza and Paulo R. Lisboa de Almeida, as part
  * of the research work:
  *
- * IncA-DES: An incremental and adaptive dynamic ensemble selection approach 
+ * IncA-DES: An incremental and adaptive dynamic ensemble selection approach
  * using online K-d tree neighborhood search for data streams with concept drift
- * Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr., 
+ * Eduardo V.L. Barboza, Paulo R. Lisboa de Almeida, Alceu de Souza Britto Jr.,
  * Robert Sabourin, Rafael M.O. Cruz
  *
- * This version has been adapted and modified by 
+ * This version has been adapted and modified by
  * Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * to fit into the MOA framework.
  *
@@ -50,8 +51,8 @@ import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
  * @version $Revision: 1 $
  */
 public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeighborSearch {
-
-    private class Node {
+	// AVISO: Coloquei tudo aqui dentro para não poluir a estrutura do MOA, não sei se posso criar um novo tipo de node
+    private class Node implements Serializable {
         Instance instance;
         Node left;
         Node right;
@@ -88,103 +89,103 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
     }
 
 	public class CanberraDistance extends NormalizableDistance implements Cloneable {
-	
+
 		public CanberraDistance() {
 		}
-		
+
 		public CanberraDistance(Instances data) {
 			super(data);
 		}
-		
+
 		@Override
 		public double distance(Instance first, Instance second) {
 			double[] x = first.toDoubleArray();
 			double[] y = second.toDoubleArray();
-			
+
 			int classIndex = first.classIndex();
 
 			double sum = 0;
-			
+
 			for (int i = 0; i < x.length; i++) {
 				if (i != classIndex) {
 					double numerator = FastMath.abs(x[i]-y[i]);
 					double denominator = FastMath.abs(x[i]) + FastMath.abs(y[i]);
 					if (denominator != 0)
 						sum += numerator / denominator;
-				}			
+				}
 			}
-			
+
 			return sum;
 		}
-		
+
 		@Override
 		public double distance(Instance first, Instance second, double cutOffValue) {
 			double[] x = first.toDoubleArray();
 			double[] y = second.toDoubleArray();
-			
+
 			int classIndex = first.classIndex();
 
 			double sum = 0;
-			
+
 			for (int i = 0; i < x.length; i++) {
 				if (i != classIndex) {
 					double numerator = FastMath.abs(x[i]-y[i]);
 					double denominator = FastMath.abs(x[i]) + FastMath.abs(y[i]);
 					if (denominator != 0)
 						sum += numerator / denominator;
-				}			
+				}
 			}
-			
+
 			return sum;
 		}
-		
+
 		public double canbDifference(int index, double val1, double val2) {
 			double val = difference(index, val1, val2);
 			return Math.abs(val);
 		}
-		
+
 		public double sqDifference(int index, double val1, double val2) {
 			double val = difference(index, val1, val2);
 			return val*val;
 		}
-		
+
 		protected double updateDistance(double currDist, double diff) {
-					
+
 			return 0;
 		}
 
-		public boolean valueIsSmallerEqual(Instance instance, 
+		public boolean valueIsSmallerEqual(Instance instance,
 				int dim, double value) {  //This stays
 			return instance.value(dim) <= value;
 		}
-		
-		public boolean valueIsSmaller(Instance instance, 
+
+		public boolean valueIsSmaller(Instance instance,
 				int dim, double value) {  //This stays
 			return instance.value(dim) < value;
 		}
-		
-		public boolean valueIsSmaller(double instanceValue, 
+
+		public boolean valueIsSmaller(double instanceValue,
 				int dim, double value) {  //This stays
 			return instanceValue == value;
 		}
-		
-		public boolean valueIsEqual(Instance instance, 
+
+		public boolean valueIsEqual(Instance instance,
 				int dim, double value) {  //This stays
 			return instance.value(dim) == value;
 		}
-		
-		
-		
-		public boolean valueIsEqual(double instanceValue, 
+
+
+
+		public boolean valueIsEqual(double instanceValue,
 				int dim, double value) {  //This stays
 			return instanceValue == value;
 		}
-		
+
 		@Override
 		public String globalInfo() {
 			return "Implementing Canberra Distance.";
 		}
-		
+
 		public int closestPoint(Instance instance, Instances allPoints,
 				int[] pointList) throws Exception {
 			double minDist = Integer.MAX_VALUE;
@@ -200,6 +201,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		}
 	}
 
+	private static final long serialVersionUID = 1505717283763272535L;
 	private static final int factor = 20;
 
     private final int DEPTH = 0;
@@ -226,7 +228,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		this.a = this.nDims/factor;
 		this.a = FastMath.max(a, 1);
 	}
-	
+
 	public KDTreeCanberra(Instances instances, int numNeighbours) {
 		super(instances);
 		this.nDims = instances.get(0).numAttributes()-1;
@@ -248,38 +250,38 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		if (this.numInstances == 0) {
 			throw new Exception("The K-d tree was not initialized. Please use the method setInstances(Instances)");
 		}
-		
+
 		this.numNeighbours = k;
-		
+
 		ArrayList<Double> distances =  getDistancesOfBranches(root, target);
-		
+
 		LinkedList<Instance> instances = new LinkedList<Instance>();
-		
+
 		int kNeighbors;
-		
+
 		if (distances.size() < this.numNeighbours)
 			kNeighbors = distances.size();
 		else
 			kNeighbors = this.numNeighbours;
-		
-		
+
+
 		for (int i = 0; i < kNeighbors; i++) {
 			instances.add(this.instancesList.get(i));
 		}
-		
+
 		// TODO: DA PRA FAZER SEM ISSO, SÓ USAR O INSTANCES, PARA GERAR ESSE SUBSET
 		// Instances insts = InstancesUtils.gerarDataset(instances, "Neighbors found");
 		Instances insts = null;
-		
+
 		return insts;
     }
 
 	protected ArrayList<Double> getDistancesOfBranches(Node node, Instance target) {
-		
+
 		ArrayList<Double> distances = new ArrayList<Double>();
 
 		this.instancesList.clear();
-		
+
 		double[] targetInfo = target.toDoubleArray();
 
 		if (node.isNodeActive()) {
@@ -287,10 +289,10 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				distances.add(distanceToNode);
 				this.instancesList.add(node.getInstance());
 		}
-		
+
 		Node best = null;
 		Node other = null;
-		
+
 		if (node.right != null && node.left != null) {
 
 			if (targetInfo[node.splitDim] >= node.getInfo()[node.splitDim]) {
@@ -305,8 +307,8 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		} else if (node.left != null) {
 			best = node.left;
 		} else return distances;
-	
-	
+
+
 		distances = getDistancesOfBranches(best, target, distances);
 
 		double maximum = Double.NEGATIVE_INFINITY;
@@ -321,24 +323,24 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				distances = getDistancesOfBranches(other, target, distances);
 			}
 		}
-		
+
 		return distances;
 	}
-	
+
 	protected ArrayList<Double> getDistancesOfBranches(Node node, Instance target, ArrayList<Double> distances) {
-		
+
 		if (node == null)
 			return distances;
-	
+
 
 		// this.nodesSearched++;
-		
-		
+
+
 		if (node.isNodeActive()) {
 			double distanceToNode = this.distanceFunction.distance(node.getInstance(), target);
 			if (distances.size() < this.numNeighbours) {
 				distances.add(distanceToNode);
-				this.instancesList.add(node.getInstance());			
+				this.instancesList.add(node.getInstance());
 		}
 		else {
 			double maximum = distances.get(0);
@@ -354,18 +356,18 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				distances.remove(maxIndex);
 				distances.add(distanceToNode);
 				this.instancesList.remove(maxIndex);
-				this.instancesList.add(node.getInstance());				
+				this.instancesList.add(node.getInstance());
 			}
 		}
 		}
-		
+
 		double[] targetInfo = target.toDoubleArray();
-		
+
 		if (node.right != null && node.left != null) {
-						
+
 			Node best = null;
 			Node other = null;
-			
+
 			if (targetInfo[node.splitDim] >= node.getInfo()[node.splitDim]) {
 				best = node.right;
 				other = node.left;
@@ -373,7 +375,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				best = node.left;
 				other = node.right;
 			}
-			
+
 			double maximum = Double.NEGATIVE_INFINITY;
 
 			for (int i = 1; i < distances.size(); i++) {
@@ -404,12 +406,12 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		} else if (node.left != null) {
 			distances = getDistancesOfBranches(node.left, target, distances);
 		}
-		
+
 		return distances;
 	}
 
 
-	
+
 	// TODO: VER COMO USAR ISSO
     @Override
     public double[] getDistances() throws Exception {
@@ -459,10 +461,10 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
     private void buildKDTreeBalanced(ArrayList<Instance> insts, int depth) throws Exception {
 		ArrayList<Double> values = new ArrayList<Double>();
-		
+
 		if (insts.size() == 0)
 			return;
-		
+
 		if (insts.size() == 1){
 			this.insertKDTreeNode(insts.get(0));
 			return;
@@ -471,7 +473,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			if (insts.size() == 2) {
 				Instance inst1 = insts.get(0);
 				Instance inst2 = insts.get(1);
-	
+
 				if (inst1.toDoubleArray()[depth] >= inst2.toDoubleArray()[depth]) {
 					this.insertKDTreeNode(inst1);
 					this.insertKDTreeNode(inst2);
@@ -481,21 +483,21 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 					this.insertKDTreeNode(inst1);
 					return;
 				}
-	
+
 			}
-		
-		
+
+
 		for (int i = 0; i < insts.size(); i++) {
 			values.add(insts.get(i).toDoubleArray()[depth]);
 		}
-		
+
 		double median = getMedian(values);
-		
+
 		Instance medianInstance = null;
-		
+
 		ArrayList<Instance> instancesToTheLeft = new ArrayList<Instance>();
 		ArrayList<Instance> instancesToTheRight = new ArrayList<Instance>();
-		
+
 			for (int i = 0; i < insts.size(); i++) {
 				if(insts.get(i).toDoubleArray()[depth] == median && medianInstance == null) {
 					medianInstance = insts.get(i);
@@ -505,12 +507,12 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				else
 					instancesToTheRight.add(insts.get(i));
 			}
-		
+
 		this.insertKDTreeNode(medianInstance);
 
 		buildKDTreeBalanced(instancesToTheLeft, (depth+1)%this.nDims);
 		buildKDTreeBalanced(instancesToTheRight, (depth+1)%this.nDims);
-		
+
 	}
 
     public void buildKDTree(Instances instances) throws Exception{
@@ -520,15 +522,15 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
     private void buildKDTreeBalanced(Instances instances, int depth) throws Exception {
         ArrayList<Double> values = new ArrayList<Double>();
-		
+
 		if (instances.size() == 0)
 			throw new InstanceNotFoundException("Instance list is empty.");
-		
+
 		if (instances.size() == 1){
 			this.insertKDTreeNode(instances.get(0));
 			return;
 		}
-		
+
 		if (instances.size() == 2) {
 			Instance inst1 = instances.get(0);
 			Instance inst2 = instances.get(1);
@@ -542,18 +544,18 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			}
 			return;
 		}
-		
+
 		for (int i = 0; i < instances.size(); i++) {
 			values.add(instances.get(i).toDoubleArray()[depth]);
 		}
-		
+
 		double median = getMedian(values);
-		
+
 		Instance medianInstance = null;
-		
+
 		ArrayList<Instance> instancesToTheLeft = new ArrayList<Instance>();
 		ArrayList<Instance> instancesToTheRight = new ArrayList<Instance>();
-		
+
 		for (int i = 0; i < instances.size(); i++) {
 			if(instances.get(i).toDoubleArray()[depth] == median && medianInstance == null) {
 				medianInstance = instances.get(i);
@@ -563,7 +565,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			else
 				instancesToTheRight.add(instances.get(i));
 		}
-		
+
 		this.insertKDTreeNode(medianInstance);
 
 		buildKDTreeBalanced(instancesToTheLeft, (depth+1)%this.nDims);
@@ -574,9 +576,9 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
         Node p = this.root;
 		Node prev = null;
 		double[] info = inst.toDoubleArray();
-		
+
 		int i = 0;
-		
+
 		while (p != null) {
 			prev = p;
 			if (info[i] < p.getInfo()[i])
@@ -585,14 +587,14 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				p = p.right;
 			i = (i+1) % nDims;
 		}
-		
+
 		int index = (i-1)%nDims;
 		if (index < 0)
 			index = nDims-1;
-		
+
 		if (this.root == null)
 			this.root = new Node(inst, i);
-		else if (info[index] < prev.getInfo()[index]) 
+		else if (info[index] < prev.getInfo()[index])
 			prev.left = new Node(inst, i);
 		else
 			prev.right = new Node(inst, i);
@@ -602,34 +604,34 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
     private void removeKDTreeNode(Instance inst) throws Exception {
 
         Node nodeToRemove = search(inst, root);
-		
+
 		if (nodeToRemove == null)
 			throw new InstanceNotFoundException("Instance not found on KDTree. Is there any missing data on the dataset?");
-		
+
 		delete(nodeToRemove);
 		this.numInstances--;
     }
 
     public Node search(Instance inst, Node node) throws Exception {
 		double[] instInfo = inst.toDoubleArray();
-		
+
 		if (node == null)
 			return null;
-		
+
 		if (isInstanceEqual(inst, node.getInstance()) && node.isNodeActive())
 			return node;
-		
+
 		Node nodeToReturn = null;
-		
+
 		if (instInfo[node.splitDim] < node.getInfo()[node.splitDim]) {
 			nodeToReturn = search(inst, node.left);
 		}
 		else {
 			nodeToReturn = search(inst, node.right);
 		}
-		
+
 		return nodeToReturn;
-		
+
 	}
 
     private void delete(Node p) throws Exception {
@@ -643,7 +645,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
     private double getMedian(ArrayList<Double> values) {
 		Collections.sort(values);
-        return values.get( (int) (values.size() + 1) / 2 - 1);	
+        return values.get( (int) (values.size() + 1) / 2 - 1);
 	}
 
 	private boolean isToSearchNode(Node root, Instance target, int splitDim, double maximum) {
@@ -654,7 +656,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
 		if (denominator != 0) {
 			modDist = FastMath.abs(minimumDistance) / denominator;
-		}		
+		}
 
 		// double compare = a*modDist;
 		double compare = 1*modDist;
@@ -665,13 +667,13 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		return false;
 	}
 
-    private boolean isInstanceEqual(Instance inst1, Instance inst2) {	
-		
+    private boolean isInstanceEqual(Instance inst1, Instance inst2) {
+
 		boolean found = true;
-		
+
 		double[] infoInst1 = inst1.toDoubleArray();
 		double[] infoInst2 = inst2.toDoubleArray();
-		
+
 		for (int i = 0; i < infoInst1.length; i++) {
 			if (infoInst1[i] != infoInst2[i]) {
 				found = false;
