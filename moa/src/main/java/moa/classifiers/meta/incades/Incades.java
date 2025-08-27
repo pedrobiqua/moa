@@ -36,6 +36,7 @@ import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
 import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
 import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
+import moa.classifiers.meta.incades.dynamicselection.KNORAEliminate;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import moa.options.ClassOption;
@@ -59,10 +60,38 @@ import moa.options.ClassOption;
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
+
     // TODO: Revisar o Prunning Engine
     // TODO: Revisar o KDTree para ver se está tudo certo
     //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
     // TODO: Falta fazer a parte de predição
+
+    // Classe que verifica o Overlap
+    private static class OverlapMeasurer {
+        public static double measureOverlap(Instances neighborhood) {
+            
+            int numClasses = neighborhood.numClasses();
+            int numNeighbours = neighborhood.size();
+
+            double[] distribution = new double[numClasses];
+
+            for (int i =0; i < neighborhood.size(); ++i) {
+                int classVal = (int) neighborhood.get(i).classValue();
+                distribution[classVal]++;
+            }
+
+            double maximum = 0;
+
+            for (int i = 0; i < distribution.length; ++i) {
+                if(distribution[i] > maximum)
+                    maximum = distribution[i];
+            }
+
+            double maxClassDist = maximum / numNeighbours;
+
+            return maxClassDist;
+        }
+    }
 
     private static final long serialVersionUID = 1L;
 
@@ -81,6 +110,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     // Tree
     private NearestNeighbourSearch search;
+    private int numNeighbors = 5;
+
+    // DS
+    private KNORAEliminate knorae = new KNORAEliminate();
 
     // Options GUI
     public ClassOption driftDetectionMethodOption = new ClassOption(
@@ -123,13 +156,48 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     @Override
     public double[] getVotesForInstance(Instance inst) {
-        // Sempre retorna 100% de probabilidade na classe 0 (dummy)
         // COLOCAR AQUI A PARTE DE PREDIÇÃO DA CLASSE
+        // Pegar a Roc
+        Instances neighborhood;
+        try {
+            // TODO: AQUI AINDA ESTÁ ERRADO POIS NÃO ESTOU VALIDANDO SE A ARVORE ESTÁ MONTADA
+            neighborhood = search.kNearestNeighbours(inst, numNeighbors);
+            // Validar o overlap
+            double complexity = OverlapMeasurer.measureOverlap(neighborhood);
+            if (complexity >= 1.0) {
+                // Não tem overlap
+                double[] classes = new double[inst.numClasses()];
+				for (int i = 0; i < neighborhood.size(); i++) {
+					int neighborClass = (int) neighborhood.get(i).classValue();
+					classes[neighborClass]++;
+				}
+				return classes;
+            }
+
+            // Tem overlap, mandar o DS retornar a classe
+            Classifier[] classifiers = new Classifier[poolClassifiers.size()];
+
+            // Se tiver overlap, mandar os classificadores, roc e intancia para o algoritmo knorae
+            for (int i = 0; i < poolClassifiers.size() - 1; i++) {
+                classifiers[i] = poolClassifiers.get(i);
+            }
+
+            // Se não o RoC já vai ter a classe predita
+            return knorae.classify(classifiers, neighborhood, inst);
+            
+
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
         double[] votes = new double[inst.numClasses()];
         if (votes.length > 0) {
             votes[0] = 1.0;
         }
         return votes;
+
+
     }
 
     @Override
