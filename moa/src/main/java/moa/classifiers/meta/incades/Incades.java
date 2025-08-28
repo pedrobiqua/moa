@@ -64,7 +64,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     // TODO: Revisar o Prunning Engine
     // TODO: Revisar o KDTree para ver se está tudo certo
     //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
-    // TODO: Falta fazer a parte de predição
+    // TODO: Falta fazer a montagem da arvore, pois nem sempre que vou precisar dela
 
     // Classe que verifica o Overlap
     private static class OverlapMeasurer {
