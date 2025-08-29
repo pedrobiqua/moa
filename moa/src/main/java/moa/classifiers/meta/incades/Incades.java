@@ -62,6 +62,7 @@ import moa.options.ClassOption;
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
 
     // TODO: Revisar o Prunning Engine
+    //    -> Preciso ainda aplicar isso aqui dentro na função prune()
     // TODO: Revisar o KDTree para ver se está tudo certo
     //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
     // TODO: Falta fazer a montagem da arvore, pois nem sempre que vou precisar dela
@@ -100,6 +101,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private int instanceCount;
 	private boolean warning = false;
     private int warningLevel = 0;
+    private boolean mountedTree = false;
 
     // Instances
     private InstancesHeader header;
@@ -128,13 +130,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         Classifier.class, "trees.HoeffdingTree"
     );
 
+    // Adicionar outras formas de KDTree Online
     public MultiChoiceOption nearestNeighbourSearchOption = new MultiChoiceOption(
-    "nearestNeighbourSearch", 'n', "Nearest Neighbour Search to use", new String[]{
-        "LinearNN", "KDTree", "KDTreeCanberra"},
-    new String[]{"Brute force search algorithm for nearest neighbour search. ",
-        "KDTree search algorithm for nearest neighbour search",
-        "KDtree search algorithm for nearest neighbour search using Canberra Distance"
-    }, 0);
+    "nearestNeighbourSearchOnline", 'n', "Nearest Neighbour Search to use", new String[]{"KDTreeCanberra"},
+    new String[]{"KDtree search algorithm for nearest neighbour search using Canberra Distance"}, 0);
 
     public IntOption windowSize = new IntOption(
         "windowSize", 'p',
@@ -161,6 +160,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         Instances neighborhood;
         try {
             // TODO: AQUI AINDA ESTÁ ERRADO POIS NÃO ESTOU VALIDANDO SE A ARVORE ESTÁ MONTADA
+            if (search == null) {
+                createKDTRee();
+            }
+            
             neighborhood = search.kNearestNeighbours(inst, numNeighbors);
             // Validar o overlap
             double complexity = OverlapMeasurer.measureOverlap(neighborhood);
@@ -211,6 +214,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
 
+        // Inicialize sliding window
         if (DSEW == null) {
             this.DSEW = new Instances(this.header, 0);
         }
@@ -238,6 +242,11 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
         if (DSEW.size() > windowSize.getValue()) {
             DSEW.delete(0);
+            // Se a arvore estiver montada lembrar de excluir da arvore tambem
+            if (!mountedTree && search != null) {
+                // TODO: Implementar
+            }
+            
         }
         // Control classifiers
         if (driftIsTrue) {
@@ -289,13 +298,21 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 	}
 
     private void createKDTRee() {
+        // Fiz isso por conta que vou adicionar mais metodos depois
         if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
-            search = new LinearNNSearch();
-        } else if (this.nearestNeighbourSearchOption.getChosenIndex()== 1) {
-            search = new KDTree();
+            search = new KDTreeCanberra();
         } else {
             search = new KDTreeCanberra();
         }
+    }
+
+    private boolean isMountedTree() {
+        return mountedTree;
+    }
+
+    private void prune() {
+        // TODO: IMPLEMENTAR AQUI A PARTE DE PODA DOS CLASSIFICADORES USANDO O AGEBASED
+        return;
     }
 
     @Override
