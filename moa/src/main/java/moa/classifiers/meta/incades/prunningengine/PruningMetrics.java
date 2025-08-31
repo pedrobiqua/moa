@@ -1,9 +1,11 @@
 package moa.classifiers.meta.incades.prunningengine;
 
-public class PruningMetrics {
+import java.io.Serializable;
+
+public class PruningMetrics implements Serializable {
     public static final Double DEFAULT_INCREASE_FACTOR_STEP = 1.0;
 	public static final Double DEFAULT_DECREASE_FACTOR_STEP = -1.0;
-	
+
 	private Long creationTime;
 	private Double useageFactor;
 
@@ -23,11 +25,11 @@ public class PruningMetrics {
 	public void setUseageFactor(Double useageFactor) {
 		this.useageFactor = useageFactor;
 	}
-	
+
 	public void increaseUseageFactor(){
 		this.useageFactor+=DEFAULT_INCREASE_FACTOR_STEP;
 	}
-	
+
 	public void decreaseUseageFactor(){
 		this.useageFactor+=DEFAULT_DECREASE_FACTOR_STEP;
 	}

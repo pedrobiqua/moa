@@ -1,10 +1,12 @@
 package moa.classifiers.meta.incades.prunningengine;
 
+import java.io.Serializable;
+
 import com.yahoo.labs.samoa.instances.Instance;
 
 import moa.classifiers.Classifier;
 
-public class MeasuredClassifier {
+public class MeasuredClassifier implements Serializable {
     private final Classifier baseClassifier;
     private final PruningMetrics metrics;
 

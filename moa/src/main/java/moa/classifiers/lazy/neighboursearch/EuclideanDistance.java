@@ -21,6 +21,8 @@
 
 package moa.classifiers.lazy.neighboursearch;
 
+import java.io.Serializable;
+
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
@@ -52,20 +54,20 @@ import com.yahoo.labs.samoa.instances.Instances;
  *
  <!-- options-start -->
  * Valid options are: <p/>
- * 
+ *
  * <pre> -D
- *  Turns off the normalization of attribute 
+ *  Turns off the normalization of attribute
  *  values in distance calculation.</pre>
- * 
+ *
  * <pre> -R &lt;col1,col2-col4,...&gt;
- *  Specifies list of columns to used in the calculation of the 
+ *  Specifies list of columns to used in the calculation of the
  *  distance. 'first' and 'last' are valid indices.
  *  (default: first-last)</pre>
- * 
+ *
  * <pre> -V
  *  Invert matching sense of column indices.</pre>
- * 
- <!-- options-end --> 
+ *
+ <!-- options-end -->
  *
  * @author Gabi Schmidberger (gabi@cs.waikato.ac.nz)
  * @author Ashraf M. Kibriya (amk14@cs.waikato.ac.nz)
@@ -74,7 +76,7 @@ import com.yahoo.labs.samoa.instances.Instances;
  */
 public class EuclideanDistance
   extends NormalizableDistance
-  implements Cloneable{
+  implements Cloneable, Serializable {
 
   /** for serialization. */
   private static final long serialVersionUID = 1068606253458807903L;
@@ -89,7 +91,7 @@ public class EuclideanDistance
   /**
    * Constructs an Euclidean Distance object and automatically initializes the
    * ranges.
-   * 
+   *
    * @param data 	the instances the distance function should work on
    */
   public EuclideanDistance(Instances data) {
@@ -98,12 +100,12 @@ public class EuclideanDistance
 
   /**
    * Returns a string describing this object.
-   * 
+   *
    * @return 		a description of the evaluator suitable for
    * 			displaying in the explorer/experimenter gui
    */
   public String globalInfo() {
-    return 
+    return
         "Implementing Euclidean distance (or similarity) function.\n\n"
       + "One object defines not one distance but the data model in which "
       + "the distances between objects of that data model can be computed.\n\n"
@@ -112,10 +114,10 @@ public class EuclideanDistance
       + "is low.\n\n";
   }
 
-  
+
   /**
    * Calculates the distance between two instances.
-   * 
+   *
    * @param first 	the first instance
    * @param second 	the second instance
    * @return 		the distance between the two given instances
@@ -123,13 +125,13 @@ public class EuclideanDistance
   public double distance(Instance first, Instance second) {
     return Math.sqrt(distance(first, second, Double.POSITIVE_INFINITY));
   }
-  
- 
+
+
   /**
    * Updates the current distance calculated so far with the new difference
-   * between two attributes. The difference between the attributes was 
+   * between two attributes. The difference between the attributes was
    * calculated with the difference(int,double,double) method.
-   * 
+   *
    * @param currDist	the current distance calculated so far
    * @param diff	the difference between two new attributes
    * @return		the update distance
@@ -137,13 +139,13 @@ public class EuclideanDistance
    */
   protected double updateDistance(double currDist, double diff) {
     double	result;
-    
+
     result  = currDist;
     result += diff * diff;
-    
+
     return result;
   }
-  
+
   /**
    * Does post processing of the distances (if necessary) returned by
    * distance(distance(Instance first, Instance second, double cutOffValue). It
@@ -151,7 +153,7 @@ public class EuclideanDistance
    * distance(distance(Instance first, Instance second, double cutOffValue) is
    * used. This is because that function actually returns the squared distance
    * to avoid inaccuracies arising from floating point comparison.
-   * 
+   *
    * @param distances	the distances to post-process
    */
   public void postProcessDistances(double distances[]) {
@@ -159,10 +161,10 @@ public class EuclideanDistance
       distances[i] = Math.sqrt(distances[i]);
     }
   }
-  
+
   /**
    * Returns the squared difference of two values of an attribute.
-   * 
+   *
    * @param index	the attribute index
    * @param val1	the first value
    * @param val2	the second value
@@ -172,10 +174,10 @@ public class EuclideanDistance
     double val = difference(index, val1, val2);
     return val*val;
   }
-  
+
   /**
    * Returns value in the middle of the two parameter values.
-   * 
+   *
    * @param ranges 	the ranges to this dimension
    * @return 		the middle value
    */
@@ -184,7 +186,7 @@ public class EuclideanDistance
     double middle = ranges[R_MIN] + ranges[R_WIDTH] * 0.5;
     return middle;
   }
-  
+
   /**
    * Returns the index of the closest point to the current instance.
    * Index is index in Instances object that is the second parameter.
@@ -208,11 +210,11 @@ public class EuclideanDistance
     }
     return pointList[bestPoint];
   }
-  
+
   /**
    * Returns true if the value of the given dimension is smaller or equal the
    * value to be compared with.
-   * 
+   *
    * @param instance 	the instance where the value should be taken of
    * @param dim 	the dimension of the value
    * @param value 	the value to compare with
@@ -222,7 +224,7 @@ public class EuclideanDistance
       				     double value) {  //This stays
     return instance.value(dim) <= value;
   }
-  
 
-    
+
+
 }

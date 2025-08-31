@@ -36,14 +36,14 @@ import com.yahoo.labs.samoa.instances.Instances;
  */
 public abstract class NormalizableDistance
   implements DistanceFunction {
-  
+
   /** Index in ranges for MIN. */
   public static final int R_MIN = 0;
 
   /** Index in ranges for MAX. */
-  
+
   public static final int R_MAX = 1;
-  
+
   /** Index in ranges for WIDTH. */
   public static final int R_WIDTH = 2;
 
@@ -52,7 +52,7 @@ public abstract class NormalizableDistance
 
   /** True if normalization is turned off (default false).*/
   protected boolean m_DontNormalize = false;
-  
+
   /** The range of the attributes. */
   protected double[][] m_Ranges;
 
@@ -61,7 +61,7 @@ public abstract class NormalizableDistance
 
   /** The boolean flags, whether an attribute will be used or not. */
   protected boolean[] m_ActiveIndices;
-  
+
   /** Whether all the necessary preparations have been done. */
   protected boolean m_Validated;
 
@@ -75,24 +75,24 @@ public abstract class NormalizableDistance
   /**
    * Initializes the distance function and automatically initializes the
    * ranges.
-   * 
+   *
    * @param data 	the instances the distance function should work on
    */
   public NormalizableDistance(Instances data) {
     setInstances(data);
   }
-  
+
   /**
    * Returns a string describing this object.
-   * 
+   *
    * @return 		a description of the evaluator suitable for
    * 			displaying in the explorer/experimenter gui
    */
   public abstract String globalInfo();
-  
-  /** 
+
+  /**
    * Returns the tip text for this property.
-   * 
+   *
    * @return 		tip text for this property suitable for
    *         		displaying in the explorer/experimenter gui
    */
@@ -101,22 +101,22 @@ public abstract class NormalizableDistance
            "for distance calculation (Default: false i.e. attribute values " +
            "are normalized). ";
   }
-  
-  /** 
+
+  /**
    * Sets whether if the attribute values are to be normalized in distance
    * calculation.
-   * 
+   *
    * @param dontNormalize	if true the values are not normalized
    */
   public void setDontNormalize(boolean dontNormalize) {
     m_DontNormalize = dontNormalize;
     invalidate();
   }
-  
+
   /**
    * Gets whether if the attribute values are to be normazlied in distance
    * calculation. (default false i.e. attribute values are normalized.)
-   * 
+   *
    * @return		false if values get normalized
    */
   public boolean getDontNormalize() {
@@ -130,7 +130,7 @@ public abstract class NormalizableDistance
    * 			displaying in the explorer/experimenter gui
    */
   public String attributeIndicesTipText() {
-    return 
+    return
         "Specify range of attributes to act on. "
       + "This is a comma separated list of attribute indices, with "
       + "\"first\" and \"last\" valid values. Specify an inclusive "
@@ -139,24 +139,24 @@ public abstract class NormalizableDistance
 
   /**
    * Sets the range of attributes to use in the calculation of the distance.
-   * The indices start from 1, 'first' and 'last' are valid as well. 
+   * The indices start from 1, 'first' and 'last' are valid as well.
    * E.g.: first-3,5,6-last
-   * 
+   *
    * @param value	the new attribute index range
    */
   public void setAttributeIndices(String value) {
     //m_AttributeIndices.setRanges(value);
     invalidate();
   }
-  
+
   /**
    * Gets the range of attributes used in the calculation of the distance.
-   * 
+   *
    * @return		the attribute index range
    */
   public String getAttributeIndices() {
     return null; //m_AttributeIndices.getRanges();
-  }   
+  }
 
   /**
    * Returns the tip text for this property.
@@ -165,38 +165,38 @@ public abstract class NormalizableDistance
    * 			displaying in the explorer/experimenter gui
    */
   public String invertSelectionTipText() {
-    return 
+    return
         "Set attribute selection mode. If false, only selected "
       + "attributes in the range will be used in the distance calculation; if "
       + "true, only non-selected attributes will be used for the calculation.";
   }
-  
+
   /**
    * Sets whether the matching sense of attribute indices is inverted or not.
-   * 
+   *
    * @param value	if true the matching sense is inverted
    */
   public void setInvertSelection(boolean value) {
     //m_AttributeIndices.setInvert(value);
     invalidate();
   }
-  
+
   /**
    * Gets whether the matching sense of attribute indices is inverted or not.
-   * 
+   *
    * @return		true if the matching sense is inverted
    */
   public boolean getInvertSelection() {
     return false; //m_AttributeIndices.getInvert();
   }
-  
+
   /**
    * invalidates all initializations.
    */
   protected void invalidate() {
     m_Validated = false;
   }
-  
+
   /**
    * performs the initializations if necessary.
    */
@@ -206,7 +206,7 @@ public abstract class NormalizableDistance
       m_Validated = true;
     }
   }
-  
+
   /**
    * initializes the ranges and the attributes being used.
    */
@@ -227,7 +227,7 @@ public abstract class NormalizableDistance
 
   /**
    * Sets the instances.
-   * 
+   *
    * @param insts 	the instances to use
    */
   public void setInstances(Instances insts) {
@@ -237,7 +237,7 @@ public abstract class NormalizableDistance
 
   /**
    * returns the instances currently set.
-   * 
+   *
    * @return 		the current instances
    */
   public Instances getInstances() {
@@ -246,7 +246,7 @@ public abstract class NormalizableDistance
 
   /**
    * Does nothing, derived classes may override it though.
-   * 
+   *
    * @param distances	the distances to post-process
    */
   public void postProcessDistances(double[] distances) {
@@ -254,18 +254,18 @@ public abstract class NormalizableDistance
 
   /**
    * Update the distance function (if necessary) for the newly added instance.
-   * 
+   *
    * @param ins		the instance to add
    */
   public void update(Instance ins) {
     validate();
-    
+
     m_Ranges = updateRanges(ins, m_Ranges);
   }
 
   /**
    * Calculates the distance between two instances.
-   * 
+   *
    * @param first 	the first instance
    * @param second 	the second instance
    * @return 		the distance between the two given instances
@@ -276,20 +276,20 @@ public abstract class NormalizableDistance
 
 
   /**
-   * Calculates the distance between two instances. Offers speed up (if the 
-   * distance function class in use supports it) in nearest neighbour search by 
-   * taking into account the cutOff or maximum distance. Depending on the 
-   * distance function class, post processing of the distances by 
+   * Calculates the distance between two instances. Offers speed up (if the
+   * distance function class in use supports it) in nearest neighbour search by
+   * taking into account the cutOff or maximum distance. Depending on the
+   * distance function class, post processing of the distances by
    * postProcessDistances(double []) may be required if this function is used.
    *
    * @param first 	the first instance
    * @param second 	the second instance
-   * @param cutOffValue If the distance being calculated becomes larger than 
-   *                    cutOffValue then the rest of the calculation is 
+   * @param cutOffValue If the distance being calculated becomes larger than
+   *                    cutOffValue then the rest of the calculation is
    *                    discarded.
-   * @return 		the distance between the two given instances or 
-   * 			Double.POSITIVE_INFINITY if the distance being 
-   * 			calculated becomes larger than cutOffValue. 
+   * @return 		the distance between the two given instances or
+   * 			Double.POSITIVE_INFINITY if the distance being
+   * 			calculated becomes larger than cutOffValue.
    */
   public double distance(Instance first, Instance second, double cutOffValue) {
     double distance = 0;
@@ -298,14 +298,14 @@ public abstract class NormalizableDistance
     int secondNumValues = second.numValues();
     int numAttributes = m_Data.numAttributes();
     int classIndex = m_Data.classIndex();
-    
+
     validate();
-    
+
     for (int p1 = 0, p2 = 0; p1 < firstNumValues || p2 < secondNumValues; ) {
       if (p1 >= firstNumValues)
 	firstI = numAttributes;
       else
-	firstI = first.index(p1); 
+	firstI = first.index(p1);
 
       if (p2 >= secondNumValues)
 	secondI = numAttributes;
@@ -313,25 +313,25 @@ public abstract class NormalizableDistance
 	secondI = second.index(p2);
 
       if (firstI == classIndex) {
-	p1++; 
+	p1++;
 	continue;
       }
       if ((firstI < numAttributes) && !m_ActiveIndices[firstI]) {
-	p1++; 
+	p1++;
 	continue;
       }
-       
+
       if (secondI == classIndex) {
-	p2++; 
+	p2++;
 	continue;
       }
       if ((secondI < numAttributes) && !m_ActiveIndices[secondI]) {
 	p2++;
 	continue;
       }
-       
+
       double diff;
-      
+
       if (firstI == secondI) {
 	diff = difference(firstI,
 	    		  first.valueSparse(p1),
@@ -340,16 +340,16 @@ public abstract class NormalizableDistance
 	p2++;
       }
       else if (firstI > secondI) {
-	diff = difference(secondI, 
+	diff = difference(secondI,
 	    		  0, second.valueSparse(p2));
 	p2++;
       }
       else {
-	diff = difference(firstI, 
+	diff = difference(firstI,
 	    		  first.valueSparse(p1), 0);
 	p1++;
       }
-      
+
       distance = updateDistance(distance, diff);
       if (distance > cutOffValue)
         return Double.POSITIVE_INFINITY;
@@ -357,19 +357,19 @@ public abstract class NormalizableDistance
 
     return distance;
   }
-  
+
   /**
    * Updates the current distance calculated so far with the new difference
-   * between two attributes. The difference between the attributes was 
+   * between two attributes. The difference between the attributes was
    * calculated with the difference(int,double,double) method.
-   * 
+   *
    * @param currDist	the current distance calculated so far
    * @param diff	the difference between two new attributes
    * @return		the update distance
    * @see		#difference(int, double, double)
    */
   protected abstract double updateDistance(double currDist, double diff);
-  
+
   /**
    * Normalizes a given value of a numeric attribute.
    *
@@ -387,7 +387,7 @@ public abstract class NormalizableDistance
   /**
    * Computes the difference between two given attribute
    * values.
-   * 
+   *
    * @param index	the attribute index
    * @param val1	the first value
    * @param val2	the second value
@@ -405,7 +405,7 @@ public abstract class NormalizableDistance
         else {
           return 0;
         }
-      } else {  
+      } else {
       //case Attribute.NUMERIC:
         if (isMissingValue(val1) ||
            isMissingValue(val2)) {
@@ -437,20 +437,20 @@ public abstract class NormalizableDistance
           }
         }
         else {
-          return (!m_DontNormalize) ? 
+          return (!m_DontNormalize) ?
               	 (norm(val1, index) - norm(val2, index)) :
               	 (val1 - val2);
         }
-        
+
       //default:
       //  return 0;
     }
   }
-  
+
   /**
    * Initializes the ranges using all instances of the dataset.
    * Sets m_Ranges.
-   * 
+   *
    * @return 		the ranges
    */
   public double[][] initializeRanges() {
@@ -458,10 +458,10 @@ public abstract class NormalizableDistance
       m_Ranges = null;
       return m_Ranges;
     }
-    
+
     int numAtt = m_Data.numAttributes();
     double[][] ranges = new double [numAtt][3];
-    
+
     if (m_Data.numInstances() <= 0) {
       initializeRangesEmpty(numAtt, ranges);
       m_Ranges = ranges;
@@ -471,22 +471,22 @@ public abstract class NormalizableDistance
       // initialize ranges using the first instance
       updateRangesFirst(m_Data.instance(0), numAtt, ranges);
     }
-    
+
     // update ranges, starting from the second
     for (int i = 1; i < m_Data.numInstances(); i++)
       updateRanges(m_Data.instance(i), numAtt, ranges);
 
     m_Ranges = ranges;
-    
+
     return m_Ranges;
   }
-  
+
   /**
    * Used to initialize the ranges. For this the values of the first
    * instance is used to save time.
    * Sets low and high to the values of the first instance and
    * width to zero.
-   * 
+   *
    * @param instance 	the new instance
    * @param numAtt 	number of attributes in the model
    * @param ranges 	low, high and width values for all attributes
@@ -505,11 +505,11 @@ public abstract class NormalizableDistance
       }
     }
   }
-  
+
   /**
    * Updates the minimum and maximum and width values for all the attributes
    * based on a new instance.
-   * 
+   *
    * @param instance 	the new instance
    * @param numAtt 	number of attributes in the model
    * @param ranges 	low, high and width values for all attributes
@@ -536,10 +536,10 @@ public abstract class NormalizableDistance
       }
     }
   }
-  
+
   /**
    * Used to initialize the ranges.
-   * 
+   *
    * @param numAtt 	number of attributes in the model
    * @param ranges 	low, high and width values for all attributes
    */
@@ -550,10 +550,10 @@ public abstract class NormalizableDistance
       ranges[j][R_WIDTH] = Double.POSITIVE_INFINITY;
     }
   }
-  
+
   /**
    * Updates the ranges given a new instance.
-   * 
+   *
    * @param instance 	the new instance
    * @param ranges 	low, high and width values for all attributes
    * @return		the updated ranges
@@ -574,14 +574,14 @@ public abstract class NormalizableDistance
         }
       }
     }
-    
+
     return ranges;
   }
-  
+
   /**
    * Initializes the ranges of a subset of the instances of this dataset.
    * Therefore m_Ranges is not set.
-   * 
+   *
    * @param instList 	list of indexes of the subset
    * @return 		the ranges
    * @throws Exception	if something goes wrong
@@ -589,10 +589,10 @@ public abstract class NormalizableDistance
   public double[][] initializeRanges(int[] instList) throws Exception {
     if (m_Data == null)
       throw new Exception("No instances supplied.");
-    
+
     int numAtt = m_Data.numAttributes();
     double[][] ranges = new double [numAtt][3];
-    
+
     if (m_Data.numInstances() <= 0) {
       initializeRangesEmpty(numAtt, ranges);
       return ranges;
@@ -611,7 +611,7 @@ public abstract class NormalizableDistance
   /**
    * Initializes the ranges of a subset of the instances of this dataset.
    * Therefore m_Ranges is not set.
-   * The caller of this method should ensure that the supplied start and end 
+   * The caller of this method should ensure that the supplied start and end
    * indices are valid (start &lt;= end, end&lt;instList.length etc) and
    * correct.
    *
@@ -624,10 +624,10 @@ public abstract class NormalizableDistance
   public double[][] initializeRanges(int[] instList, int startIdx, int endIdx) throws Exception {
     if (m_Data == null)
       throw new Exception("No instances supplied.");
-    
+
     int numAtt = m_Data.numAttributes();
     double[][] ranges = new double [numAtt][3];
-    
+
     if (m_Data.numInstances() <= 0) {
       initializeRangesEmpty(numAtt, ranges);
       return ranges;
@@ -640,31 +640,31 @@ public abstract class NormalizableDistance
         updateRanges(m_Data.instance(instList[i]), numAtt, ranges);
       }
     }
-    
+
     return ranges;
   }
-  
+
   /**
    * Update the ranges if a new instance comes.
-   * 
+   *
    * @param instance 	the new instance
    */
   public void updateRanges(Instance instance) {
     validate();
-    
+
     m_Ranges = updateRanges(instance, m_Ranges);
   }
-  
+
   /**
    * Test if an instance is within the given ranges.
-   * 
+   *
    * @param instance 	the instance
    * @param ranges 	the ranges the instance is tested to be in
    * @return true 	if instance is within the ranges
    */
   public boolean inRanges(Instance instance, double[][] ranges) {
     boolean isIn = true;
-    
+
     // updateRangesFirst must have been called on ranges
     for (int j = 0; isIn && (j < ranges.length); j++) {
       if (!instance.isMissing(j)) {
@@ -673,43 +673,43 @@ public abstract class NormalizableDistance
         if (isIn) isIn = value >= ranges[j][R_MIN];
       }
     }
-    
+
     return isIn;
   }
-  
+
   /**
    * Check if ranges are set.
-   * 
+   *
    * @return 		true if ranges are set
    */
   public boolean rangesSet() {
     return (m_Ranges != null);
   }
-  
+
   /**
    * Method to get the ranges.
-   * 
+   *
    * @return 		the ranges
    * @throws Exception	if no randes are set yet
    */
   public double[][] getRanges() throws Exception {
     validate();
-    
+
     if (m_Ranges == null)
       throw new Exception("Ranges not yet set.");
-    
+
     return m_Ranges;
   }
-  
+
   /**
    * Returns an empty string.
-   * 
+   *
    * @return		an empty string
    */
   public String toString() {
     return "";
   }
-  
+
    /**
    * Tests if the given value codes "missing".
    *

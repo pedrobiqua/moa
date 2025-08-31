@@ -17,7 +17,6 @@ package moa.classifiers.lazy.neighboursearch;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
 
 import javax.management.InstanceNotFoundException;
 
@@ -26,6 +25,7 @@ import org.codehaus.plexus.personality.plexus.lifecycle.phase.InitializationExce
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
+import com.yahoo.labs.samoa.instances.InstancesHeader;
 
 import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
 
@@ -88,7 +88,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
         }
     }
 
-	public class CanberraDistance extends NormalizableDistance implements Cloneable {
+	public class CanberraDistance extends NormalizableDistance implements Cloneable, Serializable {
 
 		public CanberraDistance() {
 		}
@@ -251,11 +251,11 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			throw new Exception("The K-d tree was not initialized. Please use the method setInstances(Instances)");
 		}
 
+		InstancesHeader header = (InstancesHeader) target.dataset();
+
 		this.numNeighbours = k;
 
 		ArrayList<Double> distances =  getDistancesOfBranches(root, target);
-
-		LinkedList<Instance> instances = new LinkedList<Instance>();
 
 		int kNeighbors;
 
@@ -265,13 +265,10 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			kNeighbors = this.numNeighbours;
 
 
+		Instances insts = new Instances(header);
 		for (int i = 0; i < kNeighbors; i++) {
-			instances.add(this.instancesList.get(i));
+			insts.add(instancesList.get(i));
 		}
-
-		// TODO: DA PRA FAZER SEM ISSO, SÓ USAR O INSTANCES, PARA GERAR ESSE SUBSET
-		// Instances insts = InstancesUtils.gerarDataset(instances, "Neighbors found");
-		Instances insts = null;
 
 		return insts;
     }
@@ -411,8 +408,6 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 	}
 
 
-
-	// TODO: VER COMO USAR ISSO
     @Override
     public double[] getDistances() throws Exception {
 		return null;
@@ -442,7 +437,6 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
     @Override
     public void removeInstance(Instance inst) throws Exception {
         removeKDTreeNode(inst);
-        throw new UnsupportedOperationException("Unimplemented method 'removeInstance'");
     }
 
     @Override

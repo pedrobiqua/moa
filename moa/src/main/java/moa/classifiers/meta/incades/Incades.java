@@ -21,6 +21,8 @@ package moa.classifiers.meta.incades;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 import com.github.javacliparser.IntOption;
 import com.github.javacliparser.MultiChoiceOption;
@@ -32,11 +34,11 @@ import moa.classifiers.AbstractClassifier;
 import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
 import moa.classifiers.core.driftdetection.ChangeDetector;
-import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
-import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
-import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
+import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
 import moa.classifiers.meta.incades.dynamicselection.KNORAEliminate;
+import moa.classifiers.meta.incades.prunningengine.AgeBasedPruningEngine;
+import moa.classifiers.meta.incades.prunningengine.MeasuredClassifier;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import moa.options.ClassOption;
@@ -60,17 +62,9 @@ import moa.options.ClassOption;
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
-
-    // TODO: Revisar o Prunning Engine
-    //    -> Preciso ainda aplicar isso aqui dentro na função prune()
-    // TODO: Revisar o KDTree para ver se está tudo certo
-    //    -> Refatorar o KDTree para usar as funções basicas de todos os buscadores knn e 1nn
-    // TODO: Falta fazer a montagem da arvore, pois nem sempre que vou precisar dela
-
-    // Classe que verifica o Overlap
     private static class OverlapMeasurer {
         public static double measureOverlap(Instances neighborhood) {
-            
+
             int numClasses = neighborhood.numClasses();
             int numNeighbours = neighborhood.size();
 
@@ -96,23 +90,28 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     private static final long serialVersionUID = 1L;
 
+    // Random
+    private Random random = ThreadLocalRandom.current();
+
     // Control parameters
     private int trainingCount;
     private int instanceCount;
 	private boolean warning = false;
     private int warningLevel = 0;
-    private boolean mountedTree = false;
+    private boolean updateNNSearch = true;
+    private boolean knnWasSet = false;
+    private int TRAINING_SIZE = 200;
+    private boolean changeWasDetected = false;
 
     // Instances
     private InstancesHeader header;
     private Instances DSEW;
 
     // Classifiers
-    private List<Classifier> poolClassifiers = new LinkedList<Classifier>();
+    private List<MeasuredClassifier> poolClassifiers = new LinkedList<MeasuredClassifier>();
 
     // Tree
-    private NearestNeighbourSearch search;
-    private int numNeighbors = 5;
+    private StreamNeighborSearch search;
 
     // DS
     private KNORAEliminate knorae = new KNORAEliminate();
@@ -138,15 +137,20 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     public IntOption windowSize = new IntOption(
         "windowSize", 'p',
         "Window size parameter",
-        10, 2, 200
+        1000000, 1000, 1000000
     );
 
     public IntOption trainingSize = new IntOption(
-        "TrainingSize", 't', "Training size parameter", 10, 10, 200
+        "TrainingSize", 't', "Training size parameter", 200, 10, 200
+    );
+
+    public IntOption numNeighborsOptions = new IntOption(
+        "NumNeighbors", 'o', "Number Neighbors", 5, 1, 20
     );
 
     private ChangeDetector driftDetector;
     private Classifier defaultClassifier;
+    private int numNeighbors;
 
     @Override
     public boolean isRandomizable() {
@@ -155,16 +159,21 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     @Override
     public double[] getVotesForInstance(Instance inst) {
-        // COLOCAR AQUI A PARTE DE PREDIÇÃO DA CLASSE
-        // Pegar a Roc
-        Instances neighborhood;
         try {
-            // TODO: AQUI AINDA ESTÁ ERRADO POIS NÃO ESTOU VALIDANDO SE A ARVORE ESTÁ MONTADA
-            if (search == null) {
-                createKDTRee();
-            }
-            
+            Instances neighborhood;
+            if (updateNNSearch == true){
+				this.rebuildTree();
+			} else {
+				if(poolClassifiers.size() < 1) {
+					int majorityIndex = random.nextInt(inst.classAttribute().numValues());
+					double[] probs = new double[inst.classAttribute().numValues()];
+					probs[majorityIndex] = 1;
+					return probs;
+				}
+			}
+
             neighborhood = search.kNearestNeighbours(inst, numNeighbors);
+
             // Validar o overlap
             double complexity = OverlapMeasurer.measureOverlap(neighborhood);
             if (complexity >= 1.0) {
@@ -181,13 +190,13 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             Classifier[] classifiers = new Classifier[poolClassifiers.size()];
 
             // Se tiver overlap, mandar os classificadores, roc e intancia para o algoritmo knorae
-            for (int i = 0; i < poolClassifiers.size() - 1; i++) {
-                classifiers[i] = poolClassifiers.get(i);
+            for (int i = 0; i < poolClassifiers.size(); i++) {
+                classifiers[i] = poolClassifiers.get(i).getBaseClassifier();
             }
 
             // Se não o RoC já vai ter a classe predita
             return knorae.classify(classifiers, neighborhood, inst);
-            
+
 
         } catch (Exception e) {
             // TODO Auto-generated catch block
@@ -205,70 +214,83 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     @Override
     public void resetLearningImpl() {
-        this.driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
+        // Inicialize default detector
+        driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
         // Inicialize default classifier
-        this.defaultClassifier = (Classifier) getPreparedClassOption(this.classifierOption);
-        this.poolClassifiers.add(defaultClassifier);
+        defaultClassifier = (Classifier) getPreparedClassOption(this.classifierOption);
+        poolClassifiers.clear();
+
+        numNeighbors = numNeighborsOptions.getValue();
+
+        knnWasSet = false;
+        updateNNSearch = true;
     }
 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
-
-        // Inicialize sliding window
-        if (DSEW == null) {
-            this.DSEW = new Instances(this.header, 0);
-        }
-
-        // Approach for searching instances
-        if (search == null) {
-            createKDTRee();
-        }
-
-        // Atualiza a mudança de conceito
-        Boolean predictionCorrect = this.lastClassifier().correctlyClassifies(inst);
-        this.driftDetector.input(predictionCorrect ? 0 : 1);
-
-        Boolean driftIsTrue = false;
-        if (this.driftDetector.getChange()){
-            driftIsTrue = true;
-        }
-
-        DSEW.add(inst);
-
-        if (this.driftDetector.getWarningZone() && this.warning == false) {
-            this.warning = true;
-            this.warningLevel = this.instanceCount;
-		}
-
-        if (DSEW.size() > windowSize.getValue()) {
-            DSEW.delete(0);
-            // Se a arvore estiver montada lembrar de excluir da arvore tambem
-            if (!mountedTree && search != null) {
-                // TODO: Implementar
+        try {
+            // Inicialize sliding window
+            if (DSEW == null) {
+                this.DSEW = new Instances(this.header, 0);
             }
-            
-        }
-        // Control classifiers
-        if (driftIsTrue) {
-            shrinkDSEW();
-            //      𝐶𝑘 ← a new classifier
-            poolClassifiers.add(defaultClassifier);
-            //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
-            poolClassifiers.remove(0); // POR ENQUANTO ESTOU REMOVENDO O PRIMEIRO, SEI QUE NÃO É
-            //      𝐶 ← 𝐶 ∪ 𝐶𝑘
-        }
 
-        if (trainingCount >= trainingSize.getValue()) {
-            //      𝐶𝑘 ← a new classifier
-            poolClassifiers.add(defaultClassifier);
-            //      𝑝𝑟𝑢𝑛𝑒(𝐶, 𝐷𝑆𝐸𝑊 , 𝐶𝑘−1 , 𝐷) // Remove um classificador com base no metodo de poda
-            poolClassifiers.remove(0); // POR ENQUANTO ESTOU REMOVENDO O PRIMEIRO, SEI QUE NÃO É
-            //      𝐶 ← 𝐶 ∪ 𝐶𝑘
-            trainingCount = 0;
-        }
-        this.lastClassifier().trainOnInstance(inst);
-        trainingCount++;
-		instanceCount++;
+            if (search == null) {
+                createInstanceKDTRee();
+            }
+
+            // Atualiza a mudança de conceito
+            if (instanceCount > TRAINING_SIZE)
+                updateDetector(inst);
+
+            // Adiciona na janela e na arvore se estiver montada
+            DSEW.add(inst);
+            if (knnWasSet)
+                search.update(inst);
+
+            // Se estiver cheio a janela, remover e tirar da arvore a instancia removida
+            if (DSEW.size() > windowSize.getValue()) {
+                Instance firstInstance = DSEW.get(0);
+                DSEW.delete(0);
+                search.removeInstance(firstInstance);
+            }
+
+            if (search.isToRebuild()) {
+                knnWasSet = false;
+                rebuildTree();
+            }
+
+            if (driftDetector.getWarningZone() && warning == false) {
+                warning = true;
+                warningLevel = instanceCount;
+            }
+
+            if (poolClassifiers.size() == 0 || this.isChangeDetected())
+                addNewIncrementalClassifier(inst);
+            else
+                updateIncADES(inst);
+
+            if (this.changeWasDetected && (this.warningLevel != this.instanceCount)) {
+				resetDetector();
+				shrinkDSEW();
+                rebuildTree();
+                // Reset control atributes
+				warning = false;
+				warningLevel = 0;
+				changeWasDetected = false;
+				trainingCount = 0;
+			}
+
+            if (!driftDetector.getWarningZone() && this.warning == true) {
+				this.warning = false;
+				this.warningLevel = 0;
+			}
+
+            trainingCount++;
+            instanceCount++;
+
+        } catch (Exception e) {
+			throw new RuntimeException(e);
+		}
     }
 
     @Override
@@ -282,9 +304,23 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         return new Measurement[0];
     }
 
-    private Classifier lastClassifier() {
+    private MeasuredClassifier lastClassifier() {
         return this.poolClassifiers.get(this.poolClassifiers.size() - 1);
     }
+
+    private void updateLastClassifier(Instance instance) throws Exception {
+		MeasuredClassifier lastClassifier = lastClassifier();
+		lastClassifier.trainOnInstance(instance);
+    }
+
+    protected void updateIncADES(Instance instance) throws Exception {
+		if (trainingCount >= trainingSize.getValue()) {
+			addNewIncrementalClassifier(instance);
+			this.trainingCount = 0;
+		} else {
+			this.updateLastClassifier(instance);
+		}
+	}
 
     private void shrinkDSEW() {
 
@@ -297,7 +333,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 		}
 	}
 
-    private void createKDTRee() {
+    private void createInstanceKDTRee() {
         // Fiz isso por conta que vou adicionar mais metodos depois
         if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
             search = new KDTreeCanberra();
@@ -306,18 +342,67 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         }
     }
 
-    private boolean isMountedTree() {
-        return mountedTree;
+    private void rebuildTree() {
+        try {
+            createInstanceKDTRee();
+            search.setInstances(DSEW);
+            updateNNSearch = false;
+            knnWasSet = true;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private void prune() {
-        // TODO: IMPLEMENTAR AQUI A PARTE DE PODA DOS CLASSIFICADORES USANDO O AGEBASED
-        return;
+    private boolean isChangeDetected() {
+		if (driftDetector.getChange()) {
+			changeWasDetected = true;
+			return true;
+		}
+		return false;
+	}
+
+    private void updateDetector(Instance instance) {
+		if (poolClassifiers.size() > 0) {
+            Boolean predictionCorrect = super.correctlyClassifies(instance);
+			this.driftDetector.input(predictionCorrect ? 0 : 1);
+		}
+	}
+
+    private void resetDetector() {
+		if (driftDetector != null)
+			driftDetector.resetLearning();
+	}
+
+    private void addNewIncrementalClassifier(Instance instance) {
+        Classifier newClassifier = defaultClassifier;
+        newClassifier.trainOnInstance(instance);
+
+        MeasuredClassifier measuredClassifier = new MeasuredClassifier(newClassifier);
+        AgeBasedPruningEngine engine = new AgeBasedPruningEngine();
+        List<MeasuredClassifier> classifiersToPrune = engine.pruneClassifiers(measuredClassifier, poolClassifiers);
+
+        for(MeasuredClassifier ic : classifiersToPrune ){
+			if(ic != measuredClassifier){
+				this.pruneClassifier(ic);
+			}else{
+				measuredClassifier = null;
+			}
+		}
+
+		if(measuredClassifier != null){
+			this.poolClassifiers.add(measuredClassifier);
+		}
+
+		this.trainingCount = 0;
+    }
+
+    private void pruneClassifier(MeasuredClassifier classifier) {
+        poolClassifiers.remove(classifier);
     }
 
     @Override
     public void getModelDescription(StringBuilder out, int indent) {
-        StringUtils.appendIndented(out, indent, "Dummy Incades Classifier (sempre prediz classe 0)");
+        StringUtils.appendIndented(out, indent, "IncA-DES: An incremental and adaptive dynamic ensemble selection");
         StringUtils.appendNewline(out);
     }
 
