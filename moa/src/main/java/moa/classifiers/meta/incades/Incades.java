@@ -35,7 +35,7 @@ import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
 import moa.classifiers.core.driftdetection.ChangeDetector;
 import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
-import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
+// import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
 import moa.classifiers.meta.incades.dynamicselection.KNORAEliminate;
 import moa.classifiers.meta.incades.prunningengine.AgeBasedPruningEngine;
 import moa.classifiers.meta.incades.prunningengine.MeasuredClassifier;
@@ -103,6 +103,9 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private int TRAINING_SIZE = 200;
     private boolean changeWasDetected = false;
 
+    // Prunning
+    AgeBasedPruningEngine engine = new AgeBasedPruningEngine(75);
+
     // Instances
     private InstancesHeader header;
     private Instances DSEW;
@@ -111,7 +114,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private List<MeasuredClassifier> poolClassifiers = new LinkedList<MeasuredClassifier>();
 
     // Tree
-    private StreamNeighborSearch search;
+    private KDTreeCanberra search;
 
     // DS
     private KNORAEliminate knorae = new KNORAEliminate();
@@ -160,7 +163,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public double[] getVotesForInstance(Instance inst) {
         try {
-            Instances neighborhood;
             if (updateNNSearch == true){
 				this.rebuildTree();
 			} else {
@@ -172,7 +174,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 				}
 			}
 
-            neighborhood = search.kNearestNeighbours(inst, numNeighbors);
+            Instances neighborhood = search.kNearestNeighbours(inst, numNeighbors);
 
             // Validar o overlap
             double complexity = OverlapMeasurer.measureOverlap(neighborhood);
@@ -199,7 +201,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
 
         } catch (Exception e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
 
@@ -335,11 +336,12 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     private void createInstanceKDTRee() {
         // Fiz isso por conta que vou adicionar mais metodos depois
-        if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
-            search = new KDTreeCanberra();
-        } else {
-            search = new KDTreeCanberra();
-        }
+        // if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
+        //     search = new KDTreeCanberra();
+        // } else {
+        //     search = new KDTreeCanberra();
+        // }
+        search = new KDTreeCanberra();
     }
 
     private void rebuildTree() {
@@ -363,8 +365,11 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 
     private void updateDetector(Instance instance) {
 		if (poolClassifiers.size() > 0) {
-            Boolean predictionCorrect = super.correctlyClassifies(instance);
-			this.driftDetector.input(predictionCorrect ? 0 : 1);
+            if (super.correctlyClassifies(instance)) {
+				driftDetector.input(0);
+			} else {
+				driftDetector.input(1);
+			}
 		}
 	}
 
@@ -378,7 +383,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         newClassifier.trainOnInstance(instance);
 
         MeasuredClassifier measuredClassifier = new MeasuredClassifier(newClassifier);
-        AgeBasedPruningEngine engine = new AgeBasedPruningEngine();
         List<MeasuredClassifier> classifiersToPrune = engine.pruneClassifiers(measuredClassifier, poolClassifiers);
 
         for(MeasuredClassifier ic : classifiersToPrune ){

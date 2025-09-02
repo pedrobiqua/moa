@@ -238,6 +238,10 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		this.a = FastMath.max(a, 1);
 	}
 
+	public int getNumInstances() {
+		return numInstances;
+	}
+
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
 
@@ -431,7 +435,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			this.a = FastMath.max(a, 1);
 		}
 		this.distanceFunction.setInstances(insts);
-        buildKDTreeBalanced(insts, DEPTH);
+        buildKDTree(insts);
     }
 
     @Override
