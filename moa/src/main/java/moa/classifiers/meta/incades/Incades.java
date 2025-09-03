@@ -163,7 +163,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     public ClassOption driftDetectionMethodOption = new ClassOption(
         "driftDetectionMethod", 'd',
         "Drift detection method to use.",
-        ChangeDetector.class, "DDM"
+        ChangeDetector.class, "RDDM"
     );
 
     public ClassOption classifierOption = new ClassOption(
