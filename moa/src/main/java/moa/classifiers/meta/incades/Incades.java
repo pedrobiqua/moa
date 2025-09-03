@@ -19,6 +19,7 @@
  */
 package moa.classifiers.meta.incades;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -26,6 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import com.github.javacliparser.IntOption;
 import com.github.javacliparser.MultiChoiceOption;
+import com.yahoo.labs.samoa.instances.Attribute;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
@@ -39,6 +41,7 @@ import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
 import moa.classifiers.meta.incades.dynamicselection.KNORAEliminate;
 import moa.classifiers.meta.incades.prunningengine.AgeBasedPruningEngine;
 import moa.classifiers.meta.incades.prunningengine.MeasuredClassifier;
+import moa.classifiers.trees.HoeffdingTree;
 import moa.core.Measurement;
 import moa.core.StringUtils;
 import moa.options.ClassOption;
@@ -88,6 +91,43 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         }
     }
 
+    public static class AttributesUtils {
+        public static List<Attribute> copyAtributes(Instances originalDataset){
+            List<Attribute> atributos = new ArrayList<Attribute>(originalDataset.numAttributes());
+            for(int i =0; i < originalDataset.numAttributes(); i++){
+                    Attribute atribOriginal = originalDataset.attribute(i);
+                    atributos.add(atribOriginal);
+            }
+            return atributos;
+        }
+
+        public static ArrayList<Attribute> copyAtributes(Instance instance){
+            ArrayList<Attribute> atributes = new ArrayList<Attribute>(instance.numAttributes());
+            for(int i =0; i < instance.numAttributes(); i++){
+                    Attribute atribOriginal = instance.attribute(i);
+                    atributes.add(atribOriginal);
+            }
+            return atributes;
+        }
+    }
+
+    public static class InstancesUtils {
+
+        public static Instances gerarDataset(List<Instance> instancias, String nomeDataset) throws Exception{
+            ArrayList<Attribute> atributos = AttributesUtils.copyAtributes(instancias.get(0));
+
+            Instances retorno = new Instances(nomeDataset, atributos,
+                    instancias.size());
+            for(Instance inst : instancias){
+                retorno.add(inst);
+            }
+
+            retorno.setClassIndex(retorno.numAttributes() - 1);
+
+            return retorno;
+        }
+    }
+
     private static final long serialVersionUID = 1L;
 
     // Random
@@ -107,8 +147,8 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     AgeBasedPruningEngine engine = new AgeBasedPruningEngine(75);
 
     // Instances
-    private InstancesHeader header;
-    private Instances DSEW;
+    // private InstancesHeader header;
+    private LinkedList<Instance> DSEW = new LinkedList<Instance>();
 
     // Classifiers
     private List<MeasuredClassifier> poolClassifiers = new LinkedList<MeasuredClassifier>();
@@ -230,11 +270,6 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
         try {
-            // Inicialize sliding window
-            if (DSEW == null) {
-                this.DSEW = new Instances(this.header, 0);
-            }
-
             if (search == null) {
                 createInstanceKDTRee();
             }
@@ -244,15 +279,17 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
                 updateDetector(inst);
 
             // Adiciona na janela e na arvore se estiver montada
-            DSEW.add(inst);
+            Instance removedInstance = null;
+			this.DSEW.addLast(inst);
+
             if (knnWasSet)
                 search.update(inst);
 
             // Se estiver cheio a janela, remover e tirar da arvore a instancia removida
             if (DSEW.size() > windowSize.getValue()) {
-                Instance firstInstance = DSEW.get(0);
-                DSEW.delete(0);
-                search.removeInstance(firstInstance);
+                removedInstance = DSEW.getFirst();
+				DSEW.removeFirst();
+                search.removeInstance(removedInstance);
             }
 
             if (search.isToRebuild()) {
@@ -294,11 +331,11 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 		}
     }
 
-    @Override
-    public void setModelContext(InstancesHeader ih) {
-        super.setModelContext(ih);
-        this.header = ih;
-    }
+    // @Override
+    // public void setModelContext(InstancesHeader ih) {
+    //     super.setModelContext(ih);
+    //     this.header = ih;
+    // }
 
     @Override
     protected Measurement[] getModelMeasurementsImpl() {
@@ -330,7 +367,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 			diff = 5;
 
 		while (DSEW.size() > diff) {
-			DSEW.delete(0);
+			DSEW.removeFirst();
 		}
 	}
 
@@ -347,7 +384,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     private void rebuildTree() {
         try {
             createInstanceKDTRee();
-            search.setInstances(DSEW);
+            // Antes eu estava fazendo assim
+            // Aprendi da pior maneira o porque estava usando LinkedList ao inves do Instances
+            // search.setInstances(DSEW);
+            search.setInstances(InstancesUtils.gerarDataset(DSEW, "Validation Instances"));
             updateNNSearch = false;
             knnWasSet = true;
         } catch (Exception e) {
@@ -379,7 +419,8 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 	}
 
     private void addNewIncrementalClassifier(Instance instance) {
-        Classifier newClassifier = defaultClassifier;
+        HoeffdingTree newClassifier = new HoeffdingTree();
+        newClassifier.prepareForUse();
         newClassifier.trainOnInstance(instance);
 
         MeasuredClassifier measuredClassifier = new MeasuredClassifier(newClassifier);
