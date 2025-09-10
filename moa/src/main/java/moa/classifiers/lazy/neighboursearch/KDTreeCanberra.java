@@ -47,7 +47,7 @@ import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
  * Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * to fit into the MOA framework.
  *
- * @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
+ * @author Eduardo V.L. Barboza
  * @version $Revision: 1 $
  */
 public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeighborSearch {
@@ -186,25 +186,24 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			return "Implementing Canberra Distance.";
 		}
 
-		public int closestPoint(Instance instance, Instances allPoints,
-				int[] pointList) throws Exception {
-			double minDist = Integer.MAX_VALUE;
-			int bestPoint = 0;
-			for (int i = 0; i < pointList.length; i++) {
-				double dist = distance(instance, allPoints.instance(pointList[i]), Double.POSITIVE_INFINITY);
-				if (dist < minDist) {
-					minDist = dist;
-					bestPoint = i;
-				}
-			}
-			return pointList[bestPoint];
-		}
+		// public int closestPoint(Instance instance, Instances allPoints,
+		// 		int[] pointList) throws Exception {
+		// 	double minDist = Integer.MAX_VALUE;
+		// 	int bestPoint = 0;
+		// 	for (int i = 0; i < pointList.length; i++) {
+		// 		double dist = distance(instance, allPoints.instance(pointList[i]), Double.POSITIVE_INFINITY);
+		// 		if (dist < minDist) {
+		// 			minDist = dist;
+		// 			bestPoint = i;
+		// 		}
+		// 	}
+		// 	return pointList[bestPoint];
+		// }
 	}
 
 	private static final long serialVersionUID = 1505717283763272535L;
 	private static final int factor = 20;
 
-    private final int DEPTH = 0;
     private Node root;
     private int nDims = 0;
     private int numInstances = 0;
@@ -268,7 +267,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 		else
 			kNeighbors = this.numNeighbours;
 
-
+		// Pega as instancias com as menores distancias
 		Instances insts = new Instances(header);
 		for (int i = 0; i < kNeighbors; i++) {
 			insts.add(instancesList.get(i));
@@ -278,14 +277,22 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
     }
 
 	protected ArrayList<Double> getDistancesOfBranches(Node node, Instance target) {
-
+		// Isso é o core da aplicação
+		// Achei interessante pois é bem diferente do algoritmo original do kNearestNeighbours
+		// A politica de poda é algo bastante interessante. Normalmente é feito algo assim:
+		// double diff = target.at(axis) - root->point_.at(axis); // É calculado a diferença
+		// diff * diff < this->bests_.top().first // valido fazendo essa diferença ao quadrado e verifico se é menor com a top da HEAP
+		// (A mais distante das mais proximas)
 		ArrayList<Double> distances = new ArrayList<Double>();
 
+		// Ele salva isso como atributo da classe, pq?
+		// Fazer recursão mantendo a lista de instancias, não sei como eu faria isso
 		this.instancesList.clear();
 
 		double[] targetInfo = target.toDoubleArray();
 
 		if (node.isNodeActive()) {
+			// Calcula a distancia do node com o target
 			double distanceToNode = this.distanceFunction.distance(node.getInstance(), target);
 				distances.add(distanceToNode);
 				this.instancesList.add(node.getInstance());
@@ -307,11 +314,18 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 			best = node.right;
 		} else if (node.left != null) {
 			best = node.left;
+		// Aqui eu sei que eu cheguei no No folha da arvore binária
 		} else return distances;
 
 
+		// Aqui da uma enganada, aqui está sendo chamado a função sobrecarregada
+		// Eu achei bastante dificil de entender o porque ele faz isso, depois
+		// de uma análise vi que é por conta da estrutura distances e inicialmente
+		// não tempos ela montada
+		// E nessa recursão ele analisa apenas a melhor sub-arvore, de acordo com o artigo
 		distances = getDistancesOfBranches(best, target, distances);
 
+		// Pego o maximo
 		double maximum = Double.NEGATIVE_INFINITY;
 		for (int i = 0; i < distances.size(); i++) {
 			double toTest = distances.get(i);
@@ -319,6 +333,7 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 				maximum = toTest;
 		}
 
+		// Verifico com o criterio seg se vou para a outra subarvore
 		if (other != null) {
 			if (isToSearchNode(node, target, node.splitDim, maximum) || distances.size() < this.numNeighbours) {
 				distances = getDistancesOfBranches(other, target, distances);
@@ -330,6 +345,9 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
 	protected ArrayList<Double> getDistancesOfBranches(Node node, Instance target, ArrayList<Double> distances) {
 
+		// Porque essa sobrecarga é ligeramente diferente do algoritmo mostrado
+
+		// Crieterio de parada
 		if (node == null)
 			return distances;
 
@@ -338,32 +356,37 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
 
 		if (node.isNodeActive()) {
+			// Calcula a distancia do Node atual com o target
 			double distanceToNode = this.distanceFunction.distance(node.getInstance(), target);
 			if (distances.size() < this.numNeighbours) {
 				distances.add(distanceToNode);
 				this.instancesList.add(node.getInstance());
-		}
-		else {
-			double maximum = distances.get(0);
-			int maxIndex = 0;
-			for (int i = 0; i < distances.size(); i++) {
-				double toTest = distances.get(i);
-				if (toTest > maximum) {
-					maximum = toTest;
-					maxIndex = i;
+			}
+			else {
+				// Aqui é a parte onde é verificado se vai entrar para a nossa HEAP
+				// dos k vizinhos mais proximos, porque não foi usado uma estrutura como
+				// priority_queue?
+				double maximum = distances.get(0);
+				int maxIndex = 0;
+				for (int i = 0; i < distances.size(); i++) {
+					double toTest = distances.get(i);
+					if (toTest > maximum) {
+						maximum = toTest;
+						maxIndex = i;
+					}
+				}
+				if (distanceToNode <= distances.get(maxIndex)) {
+					distances.remove(maxIndex);
+					distances.add(distanceToNode);
+					this.instancesList.remove(maxIndex);
+					this.instancesList.add(node.getInstance());
 				}
 			}
-			if (distanceToNode <= distances.get(maxIndex)) {
-				distances.remove(maxIndex);
-				distances.add(distanceToNode);
-				this.instancesList.remove(maxIndex);
-				this.instancesList.add(node.getInstance());
-			}
-		}
 		}
 
 		double[] targetInfo = target.toDoubleArray();
 
+		// SE NÃO FOR UM NO FOLHA
 		if (node.right != null && node.left != null) {
 
 			Node best = null;
@@ -379,12 +402,14 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
 			double maximum = Double.NEGATIVE_INFINITY;
 
+			// Obtem o maximo, a maior distancia das k distancias
 			for (int i = 1; i < distances.size(); i++) {
 				double toTest = distances.get(i);
 				if (toTest > maximum)
 					maximum = toTest;
 			}
 
+			// Verifico a subarvore do melhor lado
 			if (isToSearchNode(node, target, node.splitDim, maximum) || distances.size() < this.numNeighbours) {
 				distances = getDistancesOfBranches(best, target, distances);
 			}
@@ -397,14 +422,17 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 					maximum = toTest;
 			}
 
+			// Aqui verifico se é necessário ir para o outra sub arvore
 			if (other != null) {
 				if (isToSearchNode(node, target, node.splitDim, maximum) || distances.size() < this.numNeighbours) {
 					distances = getDistancesOfBranches(other, target, distances);
 				}
 			}
 		} else if (node.right != null) {
+			// Aqui não entendi essa parte
 			distances = getDistancesOfBranches(node.right, target, distances);
 		} else if (node.left != null) {
+			// Aqui não entendi essa parte
 			distances = getDistancesOfBranches(node.left, target, distances);
 		}
 
@@ -648,6 +676,8 @@ public class KDTreeCanberra extends NearestNeighbourSearch implements StreamNeig
 
 	private boolean isToSearchNode(Node root, Instance target, int splitDim, double maximum) {
 
+		// É nesse trecho que aplicamos a formula do seg do artigo Eq(3).
+		// E verificamos com o maximo
 		double minimumDistance = target.toDoubleArray()[splitDim] - root.getInfo()[splitDim];
 		double denominator = FastMath.abs(target.toDoubleArray()[splitDim]) + FastMath.abs(root.getInfo()[splitDim]);
 		double modDist = 0;

@@ -1,7 +1,7 @@
 /*
  *    Incades.java
  *    Copyright (C) 2025 Universidade Federal do Paraná, Paraná, Brasil
- *    @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
+ *    @author Eduardo V.L. Barboza
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -30,12 +30,13 @@ import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Attribute;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
-import com.yahoo.labs.samoa.instances.InstancesHeader;
 
 import moa.classifiers.AbstractClassifier;
 import moa.classifiers.Classifier;
 import moa.classifiers.MultiClassClassifier;
+import moa.classifiers.bayes.NaiveBayes;
 import moa.classifiers.core.driftdetection.ChangeDetector;
+import moa.classifiers.functions.Perceptron;
 import moa.classifiers.lazy.neighboursearch.KDTreeCanberra;
 // import moa.classifiers.lazy.neighboursearch.kdtrees.StreamNeighborSearch;
 import moa.classifiers.meta.incades.dynamicselection.KNORAEliminate;
@@ -61,7 +62,7 @@ import moa.options.ClassOption;
  * Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
  * to fit into the MOA framework.
  *
- * @author Pedro Bianchini de Quadros (pedro.bianchini@ufpr.br)
+ * @author Eduardo V.L. Barboza
  * @version $Revision: 1 $
  */
 public class Incades extends AbstractClassifier implements MultiClassClassifier {
@@ -166,11 +167,22 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         ChangeDetector.class, "RDDM"
     );
 
-    public ClassOption classifierOption = new ClassOption(
-        "classifierIncremental", 'l',
-        "Classifier method to use.",
-        Classifier.class, "trees.HoeffdingTree"
+    // AVISO: Coloquei esses extras porem não foi testado, apenas
+    public MultiChoiceOption incrementalLearnerOption = new MultiChoiceOption(
+        "incrementalLearner", 'i', "Incremental learning algorithm to use",
+        new String[]{
+            "HoeffdingTree",
+            "NaiveBayes",
+            "Perceptron"
+        },
+        new String[]{
+            "Hoeffding Tree incremental decision tree learner",
+            "Naive Bayes incremental classifier",
+            "Incremental Perceptron learner"
+        },
+        0 // índice do padrão → 0 = HoeffdingTree
     );
+
 
     // Adicionar outras formas de KDTree Online
     public MultiChoiceOption nearestNeighbourSearchOption = new MultiChoiceOption(
@@ -192,7 +204,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
     );
 
     private ChangeDetector driftDetector;
-    private Classifier defaultClassifier;
+    // private Classifier defaultClassifier;
     private int numNeighbors;
 
     @Override
@@ -258,7 +270,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
         // Inicialize default detector
         driftDetector = (ChangeDetector) getPreparedClassOption(this.driftDetectionMethodOption);
         // Inicialize default classifier
-        defaultClassifier = (Classifier) getPreparedClassOption(this.classifierOption);
+        // defaultClassifier = (Classifier) getPreparedClassOption(this.classifierOption);
         poolClassifiers.clear();
 
         numNeighbors = numNeighborsOptions.getValue();
@@ -282,6 +294,10 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
             Instance removedInstance = null;
 			this.DSEW.addLast(inst);
 
+            // Aqui eu preciso disso para saber se a arvore está montada
+            // Descobri da pior maneira que montar varias vezes é muito ruim
+            // No artigo não consegui compreender direito quando se deve montar
+            // a arvore, quero discutir isso com o professor
             if (knnWasSet)
                 search.update(inst);
 
@@ -372,7 +388,7 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 	}
 
     private void createInstanceKDTRee() {
-        // Fiz isso por conta que vou adicionar mais metodos depois
+        // Fiz isso por conta que vou adicionar mais metodos depois, outras abordagens de Árvores Online
         // if (this.nearestNeighbourSearchOption.getChosenIndex()== 0) {
         //     search = new KDTreeCanberra();
         // } else {
@@ -419,7 +435,19 @@ public class Incades extends AbstractClassifier implements MultiClassClassifier 
 	}
 
     private void addNewIncrementalClassifier(Instance instance) {
+
         HoeffdingTree newClassifier = new HoeffdingTree();
+        // Default é o HoeffdingTree()
+        // int indexChosen = incrementalLearnerOption.getChosenIndex();
+        // if (indexChosen == 0) {
+        //     newClassifier = new HoeffdingTree();
+        // } else if (indexChosen == 1) {
+        //     newClassifier = new NaiveBayes();
+        // } else if (indexChosen == 2) {
+        //     newClassifier = new Perceptron();
+        // } else {
+        //     newClassifier = new HoeffdingTree();
+        // }
         newClassifier.prepareForUse();
         newClassifier.trainOnInstance(instance);
 
