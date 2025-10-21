@@ -152,6 +152,43 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     }
 
+    public void printInOrder() {
+        System.out.println("digraph KDTree {");
+        System.out.println("    node [style=filled, fontname=\"Helvetica\", shape=circle];");
+        inOrder(this.root);
+        System.out.println("}");
+    
+    }
+
+    public void inOrder(Node node) {
+        if (node == null) {
+            return;
+        }
+        String color;
+        switch (node.splitDim) {
+            case 0: color = "#FF9999"; break;
+            case 1: color = "#99CCFF"; break;
+            case 2: color = "#99FF99"; break;
+            case 3: color = "#FFD580"; break;
+            case 4: color = "#5e5bfcff"; break;
+            default: color = "#DDDDDD";
+        }
+
+        System.out.printf("    \"%s\" [label=\"d=%d\", fillcolor=\"%s\"];\n",
+            node, node.splitDim, color);
+
+        if (node.left != null) {
+            System.out.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
+            inOrder(node.left);
+        }
+
+        if (node.right != null) {
+            System.out.printf("    \"%s\" -> \"%s\" [label=\"R\"];\n", node, node.right);
+            inOrder(node.right);
+        }
+
+    }
+
     private int height(Node root) {
 
         if (root == null) {

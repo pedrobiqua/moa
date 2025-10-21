@@ -25,6 +25,8 @@ public class TestKdTree {
                 System.out.println(inst + " " + kdtree.isBalanced());
                 count++;
             }
+
+            kdtree.printInOrder();
         } catch (Exception e) {
             e.printStackTrace();
         }
