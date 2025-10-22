@@ -89,7 +89,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
     }
 
-    private void buildTree(Instances ins) {
+    public void buildTree(Instances ins) {
         this.root = buildBalancedTree(ins, 0);
     }
 
@@ -98,32 +98,30 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             return null;
         }
 
-        ArrayList<Double> values_insts = new ArrayList<Double>();
+        int axis = depth % this.numDim;
+        ArrayList<Instance> instances_axis = new ArrayList<>();
+
         for (int i = 0; i < insts.size(); i++) {
-            values_insts.add(insts.get(i).toDoubleArray()[depth]);
+            instances_axis.add(insts.get(i));
         }
 
-        Collections.sort(values_insts);
-        double median = values_insts.get((int) (values_insts.size() + 1) / 2 - 1);
-        Instance medianInstance = null;
+        instances_axis.sort((a, b) -> Double.compare(a.value(axis), b.value(axis)));
+        int median = instances_axis.size() / 2;
+        Instance medianInstance = instances_axis.get(median);
 
         Instances instsToTheLeft = new Instances(insts, insts.size());
         Instances instsToTheRight = new Instances(insts, insts.size());
 
-        for (int i = 0; i < insts.size(); i++) {
-            if (insts.get(i).toDoubleArray()[depth] == median && medianInstance == null) {
-                medianInstance = insts.get(i);
-            } else if (insts.get(i).toDoubleArray()[depth] < median)
-                instsToTheLeft.add(insts.get(i));
-            else
-                instsToTheRight.add(insts.get(i));
+        for (int i = 0; i < instances_axis.size(); i++) {
+            if (i < median)
+                instsToTheLeft.add(instances_axis.get(i));
+            else if (i > median)
+                instsToTheRight.add(instances_axis.get(i));
         }
 
         // Monta a árvore em cima dessa recursão
-        return new Node(medianInstance,
-                buildBalancedTree(instsToTheLeft, (depth + 1) % this.numDim),
-                buildBalancedTree(instsToTheRight, (depth + 1) % this.numDim),
-                depth);
+        return new Node(medianInstance, buildBalancedTree(instsToTheLeft, (depth + 1)),
+                buildBalancedTree(instsToTheRight, (depth + 1)), depth);
     }
 
     private void remove(Instance ins) {
@@ -157,7 +155,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         System.out.println("    node [style=filled, fontname=\"Helvetica\", shape=circle];");
         inOrder(this.root);
         System.out.println("}");
-    
+
     }
 
     public void inOrder(Node node) {
@@ -165,17 +163,27 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             return;
         }
         String color;
-        switch (node.splitDim) {
-            case 0: color = "#FF9999"; break;
-            case 1: color = "#99CCFF"; break;
-            case 2: color = "#99FF99"; break;
-            case 3: color = "#FFD580"; break;
-            case 4: color = "#5e5bfcff"; break;
-            default: color = "#DDDDDD";
+        switch ((node.splitDim % this.numDim)) {
+        case 0:
+            color = "#FF9999";
+            break;
+        case 1:
+            color = "#99CCFF";
+            break;
+        case 2:
+            color = "#99FF99";
+            break;
+        case 3:
+            color = "#FFD580";
+            break;
+        case 4:
+            color = "#5e5bfcff";
+            break;
+        default:
+            color = "#DDDDDD";
         }
 
-        System.out.printf("    \"%s\" [label=\"d=%d\", fillcolor=\"%s\"];\n",
-            node, node.splitDim, color);
+        System.out.printf("    \"%s\" [label=\"d=%d\", fillcolor=\"%s\"];\n", node, node.splitDim, color);
 
         if (node.left != null) {
             System.out.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
