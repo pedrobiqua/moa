@@ -135,8 +135,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             Node p = findNode(this.root, inst, 0);
             if (p != null)
                 delete(p, p.splitDim);
-            else
+            else {
                 System.out.println("NÃO ENCONTRADO O ELEMENTO PARA: " + inst.toString());
+                printInOrder();
+            }
         }
     }
 
@@ -250,40 +252,37 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         String color;
         switch (node.splitDim % this.numDim) {
             case 0:
-                color = "#FF9999"; // vermelho claro
+                color = "#FF9999";
                 break;
             case 1:
-                color = "#99CCFF"; // azul claro
+                color = "#99CCFF";
                 break;
             case 2:
-                color = "#99FF99"; // verde claro
+                color = "#99FF99";
                 break;
             case 3:
-                color = "#FFD580"; // laranja claro
+                color = "#FFD580";
                 break;
             case 4:
-                color = "#5e5bfcff"; // roxo
+                color = "#5e5bfcff";
                 break;
             default:
-                color = "#DDDDDD"; // cinza
+                color = "#DDDDDD";
         }
 
         // Nó atual
         System.out.printf("    \"%s\" [label=\"d=%s\", fillcolor=\"%s\", style=filled];\n",
                 node, node.splitDim, color);
 
-        // Se tem pai, mostra também essa relação (P -> N)
         if (node.parent != null) {
             System.out.printf("    \"%s\" -> \"%s\" [label=\"P\"];\n", node, node.parent);
         }
 
-        // Lado esquerdo
         if (node.left != null) {
             System.out.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
             inOrder(node.left);
         }
 
-        // Lado direito
         if (node.right != null) {
             System.out.printf("    \"%s\" -> \"%s\" [label=\"R\"];\n", node, node.right);
             inOrder(node.right);

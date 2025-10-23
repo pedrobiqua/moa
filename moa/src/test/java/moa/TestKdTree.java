@@ -10,6 +10,8 @@ import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.streams.generators.AssetNegotiationGenerator;
 
 // PARA RODAR ESSE MONSTRO, BASTA COMPILAR E USAR:
+// A MINHA IDEIA É TIRAR ISSO DAQUI, NÃO FAZ SENTIDO FICAR NO TEST
+// mvn test-compile
 // java -cp moa/target/test-classes:moa/target/classes moa.TestKdTree > output.txt
 public class TestKdTree {
     public static void main(String[] args) {
@@ -35,19 +37,22 @@ public class TestKdTree {
                 count++;
             }
 
-            kdtree.printInOrder();
+            // kdtree.printInOrder();
 
+            ////////////////////////////////////////////////////////////////////
             // EXEMPLO DE KDTREE BALANCEADA
             KDTreeSimple kdtree_balanced = new KDTreeSimple(numDim);
             kdtree_balanced.buildTree(dataset);
-            System.out.println(kdtree_balanced.isBalanced()); // ESTÁ BALANCEADA, SÓ VER A IMAGEM
-            kdtree_balanced.printInOrder();
+            // System.out.println(kdtree_balanced.isBalanced()); // ESTÁ BALANCEADA, SÓ VER A IMAGEM
+            // kdtree_balanced.printInOrder();
 
+            ////////////////////////////////////////////////////////////////////
             // TESTE COM JANELA
+            // A REMOÇÃO NÃO ESTÁ CORRETA
             stream.prepareForUse();
             KDTreeSimple kdtree_window = new KDTreeSimple(numDim);
-            int window_size = 500;
-            total = 1000;
+            int window_size = 10;
+            total = 52;
             count = 0;
 
             LinkedList<Instance> window = new LinkedList<Instance>();
@@ -62,8 +67,6 @@ public class TestKdTree {
                     kdtree_window.remove(removed_instance);
                     kdtree_window.update(inst);
                     window.addLast(inst);
-                    kdtree_window.printInOrder();
-                    System.out.println();
 
                 }
                 // System.out.println(inst + " " + kdtree_window.isBalanced());
