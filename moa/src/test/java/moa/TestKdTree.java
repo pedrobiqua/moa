@@ -1,5 +1,7 @@
 package moa;
 
+import java.util.LinkedList;
+
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
@@ -29,17 +31,44 @@ public class TestKdTree {
                 Instance inst = stream.nextInstance().getData();
                 dataset.add(inst);
                 kdtree.update(inst);
-                System.out.println(inst + " " + kdtree.isBalanced());
+                // System.out.println(inst + " " + kdtree.isBalanced());
                 count++;
             }
 
-            System.out.println();
             kdtree.printInOrder();
-            System.out.println();
+
+            // EXEMPLO DE KDTREE BALANCEADA
             KDTreeSimple kdtree_balanced = new KDTreeSimple(numDim);
             kdtree_balanced.buildTree(dataset);
-            System.out.println(kdtree_balanced.isBalanced());
+            System.out.println(kdtree_balanced.isBalanced()); // ESTÁ BALANCEADA, SÓ VER A IMAGEM
             kdtree_balanced.printInOrder();
+
+            // TESTE COM JANELA
+            stream.prepareForUse();
+            KDTreeSimple kdtree_window = new KDTreeSimple(numDim);
+            int window_size = 500;
+            total = 1000;
+            count = 0;
+
+            LinkedList<Instance> window = new LinkedList<Instance>();
+            while (stream.hasMoreInstances() && count < total) {
+                Instance inst = stream.nextInstance().getData();
+                if (count < window_size) {
+                    kdtree_window.update(inst);
+                    window.addLast(inst);
+                } else {
+                    // remover a primeira instancia!
+                    Instance removed_instance = window.removeFirst();
+                    kdtree_window.remove(removed_instance);
+                    kdtree_window.update(inst);
+                    window.addLast(inst);
+                    kdtree_window.printInOrder();
+                    System.out.println();
+
+                }
+                // System.out.println(inst + " " + kdtree_window.isBalanced());
+                count++;
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
