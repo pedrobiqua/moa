@@ -229,8 +229,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     public boolean isBalanced() {
         // Função que mostra tamanho minimo da árvore
         // Math: \log_2 (n+1) - 1
-        int height_min = (int) logBase(2, (numNodes + 1)) - 1;
-        return height_tree <= (height_min + 1);
+        int height_min = (int) (logBase(2, (numNodes + 1)) - 1);
+        // poderia colocar isso:
+        // height_limit = 1.44 * height_min; // Porem não sei se os valores estão certos
+        return height_tree <= (height_min);
     }
 
     private double logBase(int base, int number) {
@@ -238,17 +240,19 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     }
 
     public double balancedFactor() {
-        // NÃO SEI SE ISSO ESTÁ CERTO
         if (numNodes <= 1)
             return 1.0;
 
-        int height_min = (int) Math.floor(logBase(2, numNodes));
+        int height_min = (int) Math.floor(logBase(2, numNodes + 1) - 1);
         int height_max = numNodes - 1;
 
         if (height_max == height_min)
             return 1.0;
 
-        double factor = (double) (height_max - height_tree) / (height_max - height_min);
+        // Math: \frac{h_{max} - h}{h_{max}-h_{min}}
+        // double factor = (double) (height_max - height_tree) / (height_max - height_min);
+        // Math: \frac{\log_2 n+1}{h + 1}
+        double factor = logBase(2, numNodes+1) / (height_tree + 1); // APENAS TESTE
 
         return factor;
     }
