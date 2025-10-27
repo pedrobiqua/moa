@@ -1,5 +1,8 @@
 package moa.classifiers.lazy.neighboursearch;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -34,6 +37,9 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private Node root;
     private int numDim;
 
+    private int height_tree;
+    private int numNodes;
+
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
     }
@@ -63,8 +69,6 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node p = this.root;
         Node prev = null;
 
-        // NESSE EXEMPLO DE ARVORE A PARTIÇÃO DAS DIMENSIONALIDADES
-        // É COM BASE NA PROFUNDIDADE DA ARVORE
         while (p != null) {
             prev = p;
             int axis = depth % numDim;
@@ -76,6 +80,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
             depth++;
         }
+
+        numNodes++;
 
         // Se for nulo o meu root
         if (root == null) {
@@ -90,6 +96,11 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             prev.left = new Node(ins, prev, (depth % numDim));
         } else {
             prev.right = new Node(ins, prev, (depth % numDim));
+        }
+
+        // Math: max(depth)
+        if (this.height_tree < depth) {
+            this.height_tree = depth;
         }
     }
 
@@ -135,10 +146,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             Node p = findNode(this.root, inst, 0);
             if (p != null)
                 delete(p, p.splitDim);
-            else {
-                System.out.println("NÃO ENCONTRADO O ELEMENTO PARA: " + inst.toString());
-                printInOrder();
-            }
+            // else {
+            // System.out.println("NÃO ENCONTRADO O ELEMENTO PARA: " + inst.toString());
+            // printInOrder();
+            // }
         }
     }
 
@@ -216,36 +227,44 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     }
 
     public boolean isBalanced() {
-        return isBalancedRecursive(root);
+        // Função que mostra tamanho minimo da árvore
+        // Math: \log_2 (n+1) - 1
+        int height_min = (int) logBase(2, (numNodes + 1)) - 1;
+        return height_tree <= (height_min + 1);
     }
 
-    public boolean isBalancedRecursive(Node root) {
-        // Verificar a altura da esquerda e da direita
-        // ver se a diferença é muito grande
-        if (root == null) {
-            return true;
+    private double logBase(int base, int number) {
+        return Math.log(number) / Math.log(base);
+    }
+
+    public double balancedFactor() {
+        // NÃO SEI SE ISSO ESTÁ CERTO
+        if (numNodes <= 1)
+            return 1.0;
+
+        int height_min = (int) Math.floor(logBase(2, numNodes));
+        int height_max = numNodes - 1;
+
+        if (height_max == height_min)
+            return 1.0;
+
+        double factor = (double) (height_max - height_tree) / (height_max - height_min);
+
+        return factor;
+    }
+
+    public void printInOrderToFile(String filename) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
+            writer.println("digraph KDTree {");
+            writer.println("    node [style=filled, fontname=\"Helvetica\", shape=circle];");
+            inOrderToFile(this.root, writer);
+            writer.println("}");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        int leftHeight = height(root.left);
-        int rightHeight = height(root.right);
-
-        if (Math.abs((leftHeight - rightHeight)) > 1) {
-            return false;
-        }
-
-        return isBalancedRecursive(root.left) && isBalancedRecursive(root.right);
-
     }
 
-    public void printInOrder() {
-        System.out.println("digraph KDTree {");
-        System.out.println("    node [style=filled, fontname=\"Helvetica\", shape=circle];");
-        inOrder(this.root);
-        System.out.println("}");
-
-    }
-
-    public void inOrder(Node node) {
+    public void inOrderToFile(Node node, PrintWriter writer) {
         if (node == null)
             return;
 
@@ -271,21 +290,21 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
 
         // Nó atual
-        System.out.printf("    \"%s\" [label=\"d=%s\", fillcolor=\"%s\", style=filled];\n",
+        writer.printf("    \"%s\" [label=\"d=%s\", fillcolor=\"%s\", style=filled];\n",
                 node, node.splitDim, color);
 
         if (node.parent != null) {
-            System.out.printf("    \"%s\" -> \"%s\" [label=\"P\"];\n", node, node.parent);
+            writer.printf("    \"%s\" -> \"%s\" [label=\"P\"];\n", node, node.parent);
         }
 
         if (node.left != null) {
-            System.out.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
-            inOrder(node.left);
+            writer.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
+            inOrderToFile(node.left, writer);
         }
 
         if (node.right != null) {
-            System.out.printf("    \"%s\" -> \"%s\" [label=\"R\"];\n", node, node.right);
-            inOrder(node.right);
+            writer.printf("    \"%s\" -> \"%s\" [label=\"R\"];\n", node, node.right);
+            inOrderToFile(node.right, writer);
         }
     }
 
@@ -296,6 +315,14 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
 
         return 1 + (Math.max(height(root.left), height(root.right)));
+    }
+
+    public int getNumNodes() {
+        return numNodes;
+    }
+
+    public int getHeightTree() {
+        return height_tree;
     }
 
 }
