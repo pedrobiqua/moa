@@ -40,8 +40,10 @@ public class TestKdTree {
                                 inst.toString().replace(',', ' ') + "," +
                                 kdtree.getNumNodes() + "," +
                                 kdtree.getHeightTree() + "," +
-                                kdtree.isBalanced() + "," +
-                                kdtree.balancedFactor());
+                                kdtree.getExpectedHeightTree() + "," +
+                                kdtree.isBalanced()
+                // + "," + kdtree.balancedFactor()
+                );
                 count++;
             }
 
@@ -59,9 +61,10 @@ public class TestKdTree {
                     new RandomRBFGenerator()
             };
 
-            System.out.println("stream,instancia_adicionada,n,altura_arvore,balanceada,fator_balanceamento");
+            System.out.println(
+                    "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada");
             for (int i = 0; i < streams_teste.length; i++) {
-                TestKdTree.run_experiments(streams_teste[i], 500);
+                TestKdTree.run_experiments(streams_teste[i], 1000);
             }
 
         } catch (Exception e) {
