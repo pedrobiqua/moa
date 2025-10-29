@@ -5,9 +5,18 @@ import com.yahoo.labs.samoa.instances.Instance;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.options.AbstractOptionHandler;
 import moa.streams.InstanceStream;
+import moa.streams.generators.AgrawalGenerator;
 import moa.streams.generators.AssetNegotiationGenerator;
+import moa.streams.generators.HyperplaneGenerator;
+import moa.streams.generators.LEDGenerator;
+import moa.streams.generators.LEDGeneratorDrift;
 import moa.streams.generators.RandomRBFGenerator;
+import moa.streams.generators.RandomRBFGeneratorDrift;
+import moa.streams.generators.RandomTreeGenerator;
 import moa.streams.generators.SEAGenerator;
+import moa.streams.generators.STAGGERGenerator;
+import moa.streams.generators.WaveformGenerator;
+import moa.streams.generators.WaveformGeneratorDrift;
 
 // PARA RODAR ESSE MONSTRO, BASTA COMPILAR E USAR:
 // A MINHA IDEIA É TIRAR ISSO DAQUI, NÃO FAZ SENTIDO FICAR NO TEST
@@ -58,7 +67,19 @@ public class TestKdTree {
             InstanceStream[] streams_teste = {
                     new AssetNegotiationGenerator(),
                     new SEAGenerator(),
-                    new RandomRBFGenerator()
+                    new RandomRBFGenerator(),
+                    new AgrawalGenerator(),
+                    new HyperplaneGenerator(),
+                    new STAGGERGenerator(),
+                    new RandomTreeGenerator(),
+                    new WaveformGenerator(),
+                    new LEDGenerator(),
+                    // Tem drift no nome, verificar se já é uma stream com drift, eu não tenho
+                    // certeza
+                    new WaveformGeneratorDrift(),
+                    new RandomRBFGeneratorDrift(),
+                    new LEDGeneratorDrift(),
+
             };
 
             System.out.println(
