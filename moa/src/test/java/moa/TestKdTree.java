@@ -1,9 +1,12 @@
 package moa;
 
+import java.io.File;
+
 import com.yahoo.labs.samoa.instances.Instance;
 
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.options.AbstractOptionHandler;
+import moa.streams.ArffFileStream;
 import moa.streams.InstanceStream;
 import moa.streams.generators.AgrawalGenerator;
 import moa.streams.generators.AssetNegotiationGenerator;
@@ -57,6 +60,55 @@ public class TestKdTree {
             }
 
             kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void run_real_experiment(String arffPath, int total) {
+        try {
+            File f = new File(arffPath);
+            if (!f.exists()) {
+                System.err.println("Arquivo não encontrado: " + arffPath);
+                return;
+            }
+
+            // Cria o stream a partir do arquivo .arff
+            InstanceStream stream = new ArffFileStream(arffPath, -1); // -1: última coluna como classe
+            if (stream instanceof AbstractOptionHandler) {
+                ((AbstractOptionHandler) stream).prepareForUse();
+            }
+
+            String name_stream = f.getName();
+
+            // Ignora a classe para KDTree
+            int numDim = stream.nextInstance().getData().numValues() - 1;
+            KDTreeSimple kdtree = new KDTreeSimple(numDim);
+
+            int count = 0;
+            System.out.println(
+                    "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada"
+            );
+
+            while (stream.hasMoreInstances() && count < total) {
+                Instance inst = stream.nextInstance().getData();
+                inst.setMissing(inst.classAttribute());
+                kdtree.update(inst);
+
+                System.out.println(
+                        name_stream + "," +
+                                inst.toString().replace(',', ' ') + "," +
+                                kdtree.getNumNodes() + "," +
+                                kdtree.getHeightTree() + "," +
+                                kdtree.getExpectedHeightTree() + "," +
+                                kdtree.isBalanced()
+                );
+                count++;
+            }
+
+            // Salva árvore para visualização
+            kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
