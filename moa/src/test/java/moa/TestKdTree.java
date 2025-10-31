@@ -20,6 +20,7 @@ import moa.streams.generators.SEAGenerator;
 import moa.streams.generators.STAGGERGenerator;
 import moa.streams.generators.WaveformGenerator;
 import moa.streams.generators.WaveformGeneratorDrift;
+import scala.App;
 
 // PARA RODAR ESSE MONSTRO, BASTA COMPILAR E USAR:
 // A MINHA IDEIA É TIRAR ISSO DAQUI, NÃO FAZ SENTIDO FICAR NO TEST
@@ -86,9 +87,6 @@ public class TestKdTree {
             KDTreeSimple kdtree = new KDTreeSimple(numDim);
 
             int count = 0;
-            System.out.println(
-                    "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada"
-            );
 
             while (stream.hasMoreInstances() && count < total) {
                 Instance inst = stream.nextInstance().getData();
@@ -101,8 +99,7 @@ public class TestKdTree {
                                 kdtree.getNumNodes() + "," +
                                 kdtree.getHeightTree() + "," +
                                 kdtree.getExpectedHeightTree() + "," +
-                                kdtree.isBalanced()
-                );
+                                kdtree.isBalanced());
                 count++;
             }
 
@@ -116,6 +113,7 @@ public class TestKdTree {
 
     public static void main(String[] args) {
         try {
+            ////////////////// STREAMS DATASETS EXPERIMENTO //////////////////
             InstanceStream[] streams_teste = {
                     new AssetNegotiationGenerator(),
                     new SEAGenerator(),
@@ -134,10 +132,22 @@ public class TestKdTree {
 
             };
 
+            // CABEÇALHO DOS EXPERIMENTOS
             System.out.println(
                     "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada");
+
             for (int i = 0; i < streams_teste.length; i++) {
                 TestKdTree.run_experiments(streams_teste[i], 1000);
+            }
+
+            ////////////////// STREAMS DATASETS REAIS //////////////////
+            String[] arffFiles = {
+                    "moa/classifiers/data/aws-spot-pricing-market.arff"
+            };
+
+            for (String file : arffFiles) {
+                String arffFile = App.class.getClassLoader().getResource(file).getPath();
+                run_real_experiment(arffFile, 1000);
             }
 
         } catch (Exception e) {
