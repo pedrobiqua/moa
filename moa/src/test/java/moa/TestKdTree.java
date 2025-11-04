@@ -155,9 +155,20 @@ public class TestKdTree {
             };
 
             for (String file : arffFiles) {
-                LOG.info("EXPERIMENTO: " + file);
-                String arffFile = App.class.getClassLoader().getResource(file).getPath();
-                run_real_experiment(arffFile);
+                try {
+                    LOG.info("EXPERIMENTO: " + file);
+                    String arffFile = App.class.getClassLoader().getResource(file).getPath();
+                    run_real_experiment(arffFile);
+                } catch (OutOfMemoryError e) {
+                    LOG.warning("Faltou memória em " + file);
+                    // e.printStackTrace();
+
+                    // Libera memória
+                    System.gc();
+                    Thread.sleep(2000);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
 
         } catch (Exception e) {
