@@ -1,6 +1,7 @@
 package moa;
 
 import java.io.File;
+import java.util.logging.*;
 
 import com.yahoo.labs.samoa.instances.Instance;
 
@@ -27,6 +28,8 @@ import scala.App;
 // mvn test-compile
 // java -cp moa/target/test-classes:moa/target/classes moa.TestKdTree > output.txt
 public class TestKdTree {
+
+    private static final Logger LOG = Logger.getLogger(TestKdTree.class.getName());
 
     public static void run_experiments(InstanceStream stream, int total) {
         try {
@@ -60,7 +63,7 @@ public class TestKdTree {
                 count++;
             }
 
-            kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
+            // kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -101,7 +104,7 @@ public class TestKdTree {
             }
 
             // Salva árvore para visualização
-            kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
+            // kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -133,6 +136,7 @@ public class TestKdTree {
             System.out.println(
                     "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada");
 
+            LOG.info("EXPERIMENTO DADOS SINTETICOS");
             for (int i = 0; i < streams_teste.length; i++) {
                 TestKdTree.run_experiments(streams_teste[i], 1000);
             }
@@ -151,6 +155,7 @@ public class TestKdTree {
             };
 
             for (String file : arffFiles) {
+                LOG.info("EXPERIMENTO: " + file);
                 String arffFile = App.class.getClassLoader().getResource(file).getPath();
                 run_real_experiment(arffFile);
             }
