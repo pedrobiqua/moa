@@ -66,7 +66,7 @@ public class TestKdTree {
         }
     }
 
-    public static void run_real_experiment(String arffPath, int total) {
+    public static void run_real_experiment(String arffPath) {
         try {
             File f = new File(arffPath);
             if (!f.exists()) {
@@ -86,9 +86,7 @@ public class TestKdTree {
             int numDim = stream.nextInstance().getData().numValues() - 1;
             KDTreeSimple kdtree = new KDTreeSimple(numDim);
 
-            int count = 0;
-
-            while (stream.hasMoreInstances() && count < total) {
+            while (stream.hasMoreInstances()) {
                 Instance inst = stream.nextInstance().getData();
                 inst.setMissing(inst.classAttribute());
                 kdtree.update(inst);
@@ -100,7 +98,6 @@ public class TestKdTree {
                                 kdtree.getHeightTree() + "," +
                                 kdtree.getExpectedHeightTree() + "," +
                                 kdtree.isBalanced());
-                count++;
             }
 
             // Salva árvore para visualização
@@ -142,12 +139,20 @@ public class TestKdTree {
 
             ////////////////// STREAMS DATASETS REAIS //////////////////
             String[] arffFiles = {
-                    "moa/classifiers/data/aws-spot-pricing-market.arff"
+                    "moa/classifiers/data/aws-spot-pricing-market.arff",
+                    "moa/classifiers/data/airlines.arff",
+                    "moa/classifiers/data/covtypeNorm.arff",
+                    "moa/classifiers/data/covertype.arff",
+                    "moa/classifiers/data/elecNormNew.arff",
+                    "moa/classifiers/data/electricity.arff",
+                    "moa/classifiers/data/pklot.arff",
+                    "moa/classifiers/data/pklot_1000.arff",
+                    "moa/classifiers/data/poker-lsn.arff"
             };
 
             for (String file : arffFiles) {
                 String arffFile = App.class.getClassLoader().getResource(file).getPath();
-                run_real_experiment(arffFile, 1000);
+                run_real_experiment(arffFile);
             }
 
         } catch (Exception e) {
