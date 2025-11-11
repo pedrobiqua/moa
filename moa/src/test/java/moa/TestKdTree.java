@@ -143,15 +143,16 @@ public class TestKdTree {
 
             ////////////////// STREAMS DATASETS REAIS //////////////////
             String[] arffFiles = {
-                    "moa/classifiers/data/aws-spot-pricing-market.arff",
-                    "moa/classifiers/data/airlines.arff",
-                    "moa/classifiers/data/covtypeNorm.arff",
-                    "moa/classifiers/data/covertype.arff",
-                    "moa/classifiers/data/elecNormNew.arff",
-                    "moa/classifiers/data/electricity.arff",
-                    "moa/classifiers/data/pklot.arff",
-                    "moa/classifiers/data/pklot_1000.arff",
-                    "moa/classifiers/data/poker-lsn.arff"
+                    // "moa/classifiers/data/aws-spot-pricing-market.arff",
+                    // "moa/classifiers/data/airlines.arff",
+                    // "moa/classifiers/data/covtypeNorm.arff",
+                    // "moa/classifiers/data/covertype.arff",
+                    // "moa/classifiers/data/elecNormNew.arff",
+                    // "moa/classifiers/data/electricity.arff",
+                    // "moa/classifiers/data/pklot.arff",
+                    "moa/classifiers/data/pklot_512.arff"
+                    // "moa/classifiers/data/pklot_1000.arff",
+                    // "moa/classifiers/data/poker-lsn.arff"
             };
 
             for (String file : arffFiles) {
