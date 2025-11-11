@@ -42,7 +42,7 @@ public class TestKdTree {
             String name_stream = stream.getClass().getName();
 
             // IGNORA A CLASSE
-            int numDim = stream.nextInstance().getData().numValues() - 1;
+            int numDim = stream.getHeader().numAttributes() - 1;
             KDTreeSimple kdtree = new KDTreeSimple(numDim);
 
             int count = 0;
@@ -53,7 +53,6 @@ public class TestKdTree {
                 kdtree.update(inst);
                 System.out.println(
                         name_stream + "," +
-                                inst.toString().replace(',', ' ') + "," +
                                 kdtree.getNumNodes() + "," +
                                 kdtree.getHeightTree() + "," +
                                 kdtree.getExpectedHeightTree() + "," +
@@ -77,8 +76,8 @@ public class TestKdTree {
                 return;
             }
 
-            // Cria o stream a partir do arquivo .arff
-            InstanceStream stream = new ArffFileStream(arffPath, -1); // -1: última coluna como classe
+            // APENAS PARA LEMBRAR -1 É PRA PEGAR P ULTIMO ATRIBUTO COMO CLASSE
+            InstanceStream stream = new ArffFileStream(arffPath, -1);
             if (stream instanceof AbstractOptionHandler) {
                 ((AbstractOptionHandler) stream).prepareForUse();
             }
@@ -86,17 +85,26 @@ public class TestKdTree {
             String name_stream = f.getName();
 
             // Ignora a classe para KDTree
-            int numDim = stream.nextInstance().getData().numValues() - 1;
+            int numDim = stream.getHeader().numAttributes();
+            boolean remover_classe = false;
+            // LEMBRAR: FAÇO ISSO PORQUE A AWS NÃO TEM CLASSE DEFINIDA
+            // na minha cabeça isso não é muito comum, se precisar crio uma lista
+            if (!name_stream.equals("aws-spot-pricing-market.arff")) {
+                numDim = numDim - 1;
+                remover_classe = true;
+            }
+
             KDTreeSimple kdtree = new KDTreeSimple(numDim);
 
             while (stream.hasMoreInstances()) {
                 Instance inst = stream.nextInstance().getData();
-                inst.setMissing(inst.classAttribute());
+                if (remover_classe) {
+                    inst.setMissing(inst.classAttribute());
+                }
                 kdtree.update(inst);
 
                 System.out.println(
                         name_stream + "," +
-                                inst.toString().replace(',', ' ') + "," +
                                 kdtree.getNumNodes() + "," +
                                 kdtree.getHeightTree() + "," +
                                 kdtree.getExpectedHeightTree() + "," +
@@ -113,6 +121,12 @@ public class TestKdTree {
 
     public static void main(String[] args) {
         try {
+
+            boolean rodar_sintetico = false;
+            if (args.length > 0 && args[0].equals("1")) {
+                rodar_sintetico = true;
+            }
+
             ////////////////// STREAMS DATASETS EXPERIMENTO //////////////////
             InstanceStream[] streams_teste = {
                     new AssetNegotiationGenerator(),
@@ -134,23 +148,25 @@ public class TestKdTree {
 
             // CABEÇALHO DOS EXPERIMENTOS
             System.out.println(
-                    "stream,instancia_adicionada,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada");
+                    "stream,total_nos,altura_arvore,altura_min_esperada(\\lfloor \\log_2 n \\rfloor),balanceada");
 
-            LOG.info("EXPERIMENTO DADOS SINTETICOS");
-            for (int i = 0; i < streams_teste.length; i++) {
-                TestKdTree.run_experiments(streams_teste[i], 1000);
+            if (rodar_sintetico) {
+                LOG.info("EXPERIMENTO DADOS SINTETICOS");
+                for (int i = 0; i < streams_teste.length; i++) {
+                    TestKdTree.run_experiments(streams_teste[i], 1000);
+                }
             }
 
             ////////////////// STREAMS DATASETS REAIS //////////////////
             String[] arffFiles = {
-                    // "moa/classifiers/data/aws-spot-pricing-market.arff",
+                    "moa/classifiers/data/aws-spot-pricing-market.arff",
                     // "moa/classifiers/data/airlines.arff",
                     // "moa/classifiers/data/covtypeNorm.arff",
                     // "moa/classifiers/data/covertype.arff",
                     // "moa/classifiers/data/elecNormNew.arff",
                     // "moa/classifiers/data/electricity.arff",
                     // "moa/classifiers/data/pklot.arff",
-                    "moa/classifiers/data/pklot_512.arff"
+                    // "moa/classifiers/data/pklot_512.arff",
                     // "moa/classifiers/data/pklot_1000.arff",
                     // "moa/classifiers/data/poker-lsn.arff"
             };
