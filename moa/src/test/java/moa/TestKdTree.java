@@ -115,6 +115,13 @@ public class TestKdTree {
                 }
             }
 
+            System.out.println(
+                    name_stream + "," +
+                            kdtree.getNumNodes() + "," +
+                            kdtree.getHeightTree() + "," +
+                            kdtree.getExpectedHeightTree() + "," +
+                            kdtree.isBalanced());
+
             // Salva árvore para visualização
             // kdtree.printInOrderToFile(name_stream + "_kd_tree.dot");
 
