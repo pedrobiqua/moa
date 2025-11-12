@@ -96,19 +96,23 @@ public class TestKdTree {
 
             KDTreeSimple kdtree = new KDTreeSimple(numDim);
 
+            int count = 0;
             while (stream.hasMoreInstances()) {
                 Instance inst = stream.nextInstance().getData();
+                count++;
                 if (remover_classe) {
                     inst.setMissing(inst.classAttribute());
                 }
                 kdtree.update(inst);
 
-                System.out.println(
-                        name_stream + "," +
-                                kdtree.getNumNodes() + "," +
-                                kdtree.getHeightTree() + "," +
-                                kdtree.getExpectedHeightTree() + "," +
-                                kdtree.isBalanced());
+                if (count == 1 || count % 1000 == 0) {
+                    System.out.println(
+                            name_stream + "," +
+                                    kdtree.getNumNodes() + "," +
+                                    kdtree.getHeightTree() + "," +
+                                    kdtree.getExpectedHeightTree() + "," +
+                                    kdtree.isBalanced());
+                }
             }
 
             // Salva árvore para visualização
@@ -166,7 +170,7 @@ public class TestKdTree {
                     // "moa/classifiers/data/elecNormNew.arff",
                     // "moa/classifiers/data/electricity.arff",
                     // "moa/classifiers/data/pklot.arff",
-                    // "moa/classifiers/data/pklot_512.arff",
+                    "moa/classifiers/data/pklot_512.arff",
                     // "moa/classifiers/data/pklot_1000.arff",
                     // "moa/classifiers/data/poker-lsn.arff"
             };
