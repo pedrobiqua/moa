@@ -26,6 +26,7 @@ import moa.classifiers.AbstractClassifier;
 import moa.classifiers.MultiClassClassifier;
 import moa.classifiers.Regressor;
 import moa.classifiers.lazy.neighboursearch.KDTree;
+import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
 import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
 import moa.core.Measurement;
@@ -58,6 +59,7 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
             Integer.MAX_VALUE);
 
     int C = 0;
+    int contador = 0;
 
     NearestNeighbourSearch search;
 
@@ -67,6 +69,7 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
     }
 
     protected LinkedList<Instance> window;
+    // private Instances window;
 
     @Override
     public void setModelContext(InstancesHeader context) {
@@ -87,6 +90,7 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
 
     @Override
     public void trainOnInstanceImpl(Instance inst) {
+        // WINDOW
         if (inst.classValue() > C)
             C = (int) inst.classValue();
         if (this.window == null) {
@@ -95,17 +99,27 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
         if (this.limitOption.getValue() <= this.window.size()) {
             this.window.removeFirst();
         }
-        this.window.addLast(inst);
+        this.window.add(inst);
 
         // ATUALIZA O KDTREE
         try {
+            // if (contador <= 1) {
+            // // INICIALIZAÇÃO DO KDTREE DO MOA
+            // search = new KDTree();
+            // search.setInstances(window);
+            // }
+            // // TIVE QUE COLOCAR ESSE CONTADOR, O KD_TREE DO MOA NÃO FUNCIONA DIREITO
+            // if (contador >= 2) {
+            // this.search.update(inst);
+            // }
+            // contador++;
+
             if (search == null) {
-                Instances insts = inst.dataset();
-                insts.add(inst);
-                search = new KDTree();
-                search.setInstances(insts);
-            } else
-                this.search.update(inst);
+                // RETIRO A CLASSE
+                search = new KDTreeSimple(inst.numAttributes() - 1);
+            }
+            search.update(inst);
+
         } catch (Exception e) {
             e.printStackTrace();
         }

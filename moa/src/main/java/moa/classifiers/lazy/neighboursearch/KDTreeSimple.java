@@ -40,18 +40,82 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private int height_tree;
     private int numNodes;
 
+    private EuclideanDistance euclidian_distance = new EuclideanDistance();
+
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
     }
 
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
-        throw new UnsupportedOperationException("Unimplemented method 'getDistances'");
+        Node searchInstance = searchNearestNeighbor(root, target, 0);
+        return searchInstance.instance;
+
     }
 
     @Override
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
-        throw new UnsupportedOperationException("Unimplemented method 'getDistances'");
+        Node searchInstance = searchNearestNeighbor(root, target, 1);
+        Instances temp = new Instances(searchInstance.instance.dataset(), 0);
+        temp.add(searchInstance.instance);
+        return temp;
+    }
+
+    private Node searchNearestNeighbor(Node root, Instance target, int depth) {
+
+        if (root == null)
+            return null;
+
+        Node nextBranch = null;
+        Node otherBranch = null;
+
+        // compare the property appropriate for the current depth
+        if (target.toDoubleArray()[depth % this.numDim] < root.splitDim) {
+            nextBranch = root.left;
+            otherBranch = root.right;
+        } else {
+            nextBranch = root.right;
+            otherBranch = root.left;
+        }
+
+        // recurse down the branch that's best according to the current depth
+        Node temp = searchNearestNeighbor(nextBranch, target, depth + 1);
+        Node best = closest(temp, root, target);
+
+        // long radiusSquared = distSquared(target, best.instance);
+        double radiusSquared = euclidian_distance.distance(target, best.instance);
+
+        /*
+         * We may need to check the other side of the tree. If the other side is closer
+         * than the radius,
+         * then we must recurse to the other side as well. 'dist' is either a horizontal
+         * or a vertical line
+         * that goes to an imaginary line that is splitting the plane by the root point.
+         */
+        double dist = target.toDoubleArray()[depth % numDim] - root.instance.toDoubleArray()[root.splitDim];
+
+        if (radiusSquared >= dist * dist) {
+            temp = searchNearestNeighbor(otherBranch, target, depth + 1);
+            best = closest(temp, best, target);
+        }
+
+        return best;
+    }
+
+    private Node closest(Node n0, Node n1, Instance target) {
+        if (n0 == null)
+            return n1;
+
+        if (n1 == null)
+            return n0;
+
+        double d1 = euclidian_distance.distance(n0.instance, target);
+        double d2 = euclidian_distance.distance(n1.instance, target);
+
+        if (d1 < d2)
+            return n0;
+        else
+            return n1;
     }
 
     @Override
@@ -256,61 +320,6 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         double factor = logBase(2, numNodes + 1) / (height_tree + 1); // APENAS TESTE
 
         return factor;
-    }
-
-    public void printInOrderToFile(String filename) {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(filename))) {
-            writer.println("digraph KDTree {");
-            writer.println("    node [style=filled, fontname=\"Helvetica\", shape=circle];");
-            inOrderToFile(this.root, writer);
-            writer.println("}");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void inOrderToFile(Node node, PrintWriter writer) {
-        if (node == null)
-            return;
-
-        String color;
-        switch (node.splitDim % this.numDim) {
-            case 0:
-                color = "#FF9999";
-                break;
-            case 1:
-                color = "#99CCFF";
-                break;
-            case 2:
-                color = "#99FF99";
-                break;
-            case 3:
-                color = "#FFD580";
-                break;
-            case 4:
-                color = "#5e5bfcff";
-                break;
-            default:
-                color = "#DDDDDD";
-        }
-
-        // Nó atual
-        writer.printf("    \"%s\" [label=\"d=%s\", fillcolor=\"%s\", style=filled];\n",
-                node, node.splitDim, color);
-
-        if (node.parent != null) {
-            writer.printf("    \"%s\" -> \"%s\" [label=\"P\"];\n", node, node.parent);
-        }
-
-        if (node.left != null) {
-            writer.printf("    \"%s\" -> \"%s\" [label=\"L\"];\n", node, node.left);
-            inOrderToFile(node.left, writer);
-        }
-
-        if (node.right != null) {
-            writer.printf("    \"%s\" -> \"%s\" [label=\"R\"];\n", node, node.right);
-            inOrderToFile(node.right, writer);
-        }
     }
 
     private int height(Node root) {
