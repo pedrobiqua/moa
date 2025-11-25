@@ -17,6 +17,7 @@
  */
 package moa.classifiers.lazy;
 
+import java.io.PrintStream;
 import java.io.StringReader;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -63,6 +64,18 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
 
     NearestNeighbourSearch search;
 
+    // MEDIÇÃO DOS TEMPOS
+    PrintStream outputFile;
+
+    public kNNSimple() {
+        super();
+    }
+
+    public kNNSimple(PrintStream outputFile) {
+        super();
+        this.outputFile = outputFile;
+    }
+
     @Override
     public String getPurposeString() {
         return "kNN: special.";
@@ -103,20 +116,12 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
 
         // ATUALIZA O KDTREE
         try {
-            // if (contador <= 1) {
-            // // INICIALIZAÇÃO DO KDTREE DO MOA
-            // search = new KDTree();
-            // search.setInstances(window);
-            // }
-            // // TIVE QUE COLOCAR ESSE CONTADOR, O KD_TREE DO MOA NÃO FUNCIONA DIREITO
-            // if (contador >= 2) {
-            // this.search.update(inst);
-            // }
-            // contador++;
-
             if (search == null) {
                 // RETIRO A CLASSE
-                search = new KDTreeSimple(inst.numAttributes() - 1);
+                if (outputFile != null)
+                    search = new KDTreeSimple((inst.numAttributes() - 1), outputFile);
+                else
+                    search = new KDTreeSimple((inst.numAttributes() - 1));
             }
             search.update(inst);
 

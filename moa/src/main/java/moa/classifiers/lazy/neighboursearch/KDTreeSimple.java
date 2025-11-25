@@ -1,13 +1,13 @@
 package moa.classifiers.lazy.neighboursearch;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
+
+import moa.core.TimingUtils;
 
 public class KDTreeSimple extends NearestNeighbourSearch {
 
@@ -40,22 +40,47 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private int height_tree;
     private int numNodes;
 
-    private EuclideanDistance euclidian_distance = new EuclideanDistance();
+    // MEDIR O TEMPO
+    private PrintStream outputFile;
 
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
     }
 
+    public KDTreeSimple(int numDim, PrintStream outputFile) {
+        this.numDim = numDim;
+        this.outputFile = outputFile;
+    }
+
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
+        // MEDINDO A BUSCA
+        long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
         Node searchInstance = searchNearestNeighbor(root, target, 0);
+        long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
+        double time = TimingUtils.nanoTimeToSeconds(end - start);
+
+        if (outputFile != null) {
+            outputFile.println("NN, " + time);
+        }
         return searchInstance.instance;
 
     }
 
     @Override
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
+        // TEMPO
+        long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
         Node searchInstance = searchNearestNeighbor(root, target, 1);
+        long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
+        double time = TimingUtils.nanoTimeToSeconds(end - start);
+
+        if (outputFile != null) {
+            outputFile.println("kNN, " + time);
+        }
+
         Instances temp = new Instances(searchInstance.instance.dataset(), 0);
         temp.add(searchInstance.instance);
         return temp;
@@ -70,7 +95,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node otherBranch = null;
 
         // compare the property appropriate for the current depth
-        if (target.toDoubleArray()[depth % this.numDim] < root.splitDim) {
+        if (target.toDoubleArray()[depth % this.numDim] < root.instance.toDoubleArray()[depth % this.numDim]) {
             nextBranch = root.left;
             otherBranch = root.right;
         } else {
@@ -82,9 +107,9 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node temp = searchNearestNeighbor(nextBranch, target, depth + 1);
         Node best = closest(temp, root, target);
 
-        // long radiusSquared = distSquared(target, best.instance);
-        double radiusSquared = euclidian_distance.distance(target, best.instance);
+        double radiusSquared = distSquared(target, best.instance); // r
 
+        // não tenho certeza se isso está certo
         /*
          * We may need to check the other side of the tree. If the other side is closer
          * than the radius,
@@ -92,7 +117,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
          * or a vertical line
          * that goes to an imaginary line that is splitting the plane by the root point.
          */
-        double dist = target.toDoubleArray()[depth % numDim] - root.instance.toDoubleArray()[root.splitDim];
+        double dist = target.toDoubleArray()[depth % numDim] - root.instance.toDoubleArray()[depth % numDim]; // r'
 
         if (radiusSquared >= dist * dist) {
             temp = searchNearestNeighbor(otherBranch, target, depth + 1);
@@ -109,13 +134,30 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         if (n1 == null)
             return n0;
 
-        double d1 = euclidian_distance.distance(n0.instance, target);
-        double d2 = euclidian_distance.distance(n1.instance, target);
+        double d1 = distSquared(n0.instance, target);
+        double d2 = distSquared(n1.instance, target);
 
         if (d1 < d2)
             return n0;
         else
             return n1;
+    }
+
+    private double dist(Instance n0, Instance n1) {
+        return Math.sqrt(distSquared(n0, n1));
+    }
+
+    private double distSquared(Instance n0, Instance n1) {
+        double total = 0;
+
+        double[] p0 = n0.toDoubleArray();
+        double[] p1 = n1.toDoubleArray();
+
+        for (int i = 0; i < numDim; i++) {
+            double diff = Math.abs(p0[i] - p1[i]);
+            total += Math.pow(diff, 2);
+        }
+        return total;
     }
 
     @Override
@@ -125,7 +167,15 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     @Override
     public void update(Instance ins) throws Exception {
+        long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
         insert(ins);
+        long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
+        double time = TimingUtils.nanoTimeToSeconds(end - start);
+
+        if (outputFile != null) {
+            outputFile.println("insert, " + time);
+        }
     }
 
     private void insert(Instance ins) {
@@ -320,15 +370,6 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         double factor = logBase(2, numNodes + 1) / (height_tree + 1); // APENAS TESTE
 
         return factor;
-    }
-
-    private int height(Node root) {
-
-        if (root == null) {
-            return 0;
-        }
-
-        return 1 + (Math.max(height(root.left), height(root.right)));
     }
 
     public int getNumNodes() {
