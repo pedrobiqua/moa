@@ -18,24 +18,17 @@
 package moa.classifiers.lazy;
 
 import java.io.PrintStream;
-import java.io.StringReader;
-import java.util.Arrays;
 import java.util.LinkedList;
 
-import com.github.javacliparser.FlagOption;
 import moa.classifiers.AbstractClassifier;
 import moa.classifiers.MultiClassClassifier;
-import moa.classifiers.Regressor;
-import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
-import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
-import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
 import moa.core.Measurement;
+
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
 import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
 
 /**
  * k Nearest Neighbor.
@@ -62,7 +55,7 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
     int C = 0;
     int contador = 0;
 
-    NearestNeighbourSearch search;
+    KDTreeSimple search;
 
     // MEDIÇÃO DOS TEMPOS
     PrintStream outputFile;
@@ -118,10 +111,7 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
         try {
             if (search == null) {
                 // RETIRO A CLASSE
-                if (outputFile != null)
-                    search = new KDTreeSimple((inst.numAttributes() - 1), outputFile);
-                else
-                    search = new KDTreeSimple((inst.numAttributes() - 1));
+                search = new KDTreeSimple((inst.numAttributes() - 1));
             }
             search.update(inst);
 
@@ -136,8 +126,15 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
         double v[] = new double[C + 1];
         try {
             if (this.window.size() > 0) {
+                // long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
                 Instances neighbours = search.kNearestNeighbours(inst,
                         Math.min(kOption.getValue(), this.window.size()));
+
+                // long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
+                // double time = TimingUtils.nanoTimeToSeconds(end - start);
+                // outputFile.println("busca," + time);
 
                 for (int i = 0; i < neighbours.numInstances(); i++) {
                     v[(int) neighbours.instance(i).classValue()]++;
@@ -163,5 +160,9 @@ public class kNNSimple extends AbstractClassifier implements MultiClassClassifie
 
     public boolean isRandomizable() {
         return false;
+    }
+
+    public KDTreeSimple getSearch() {
+        return search;
     }
 }

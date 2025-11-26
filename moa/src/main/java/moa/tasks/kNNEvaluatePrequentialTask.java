@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 
 import com.github.javacliparser.FileOption;
+import com.yahoo.labs.samoa.instances.Instance;
+
 import moa.capabilities.CapabilitiesHandler;
 import moa.capabilities.Capability;
 import moa.capabilities.ImmutableCapabilities;
@@ -13,6 +15,7 @@ import moa.classifiers.lazy.kNNSimple;
 import moa.core.Example;
 import moa.core.ObjectRepository;
 import moa.core.TimingUtils;
+import moa.core.Utils;
 import moa.evaluation.LearningEvaluation;
 import moa.evaluation.LearningPerformanceEvaluator;
 import moa.evaluation.preview.LearningCurve;
@@ -62,7 +65,7 @@ public class kNNEvaluatePrequentialTask extends ClassificationMainTask implement
             try {
                 if (outputTempFile.exists()) {
                     outputPredictionResultStream = new PrintStream(
-                            new FileOutputStream(outputTempFile, true), true);
+                            new FileOutputStream(outputTempFile, false), true);
                 } else {
                     outputPredictionResultStream = new PrintStream(
                             new FileOutputStream(outputTempFile), true);
@@ -80,7 +83,7 @@ public class kNNEvaluatePrequentialTask extends ClassificationMainTask implement
             try {
                 if (outputKDTreeTemp.exists()) {
                     outputKDTreeTempResult = new PrintStream(
-                            new FileOutputStream(outputKDTreeTemp, true), true);
+                            new FileOutputStream(outputKDTreeTemp, false), true);
                 } else {
                     outputKDTreeTempResult = new PrintStream(
                             new FileOutputStream(outputKDTreeTemp), true);
@@ -94,7 +97,7 @@ public class kNNEvaluatePrequentialTask extends ClassificationMainTask implement
         boolean preciseCPUTiming = TimingUtils.enablePreciseTiming();
 
         if (outputTempFile != null) {
-            outputPredictionResultStream.println("instanceProcessed, pred_temp, train_temp");
+            outputPredictionResultStream.println("instance,busca,insert,pred,true_class,altura_arvore");
         }
 
         kNNSimple learner;
@@ -112,19 +115,28 @@ public class kNNEvaluatePrequentialTask extends ClassificationMainTask implement
             double[] prediction = learner.getVotesForInstance(testInst);
             long endPred = TimingUtils.getNanoCPUTimeOfCurrentThread();
 
+            int pred = Utils.maxIndex(prediction);
+            int trueClass = (int) ((Instance) trainInst.getData()).classValue();
+
             long startTrain = TimingUtils.getNanoCPUTimeOfCurrentThread();
             learner.trainOnInstance(trainInst);
+            int altura_arvore = learner.getSearch().getHeightTree();
             long endTrain = TimingUtils.getNanoCPUTimeOfCurrentThread();
 
             double predTime = TimingUtils.nanoTimeToSeconds(endPred - startPred);
             double trainTime = TimingUtils.nanoTimeToSeconds(endTrain - startTrain);
 
             // Output TREINO E TESTE TEMPO
-            if (outputTempFile != null) {
-                outputPredictionResultStream.println(
-                        instancesProcessed + ", " +
-                                predTime + ", " +
-                                trainTime);
+            if (instancesProcessed % 10 == 0) {
+                if (outputTempFile != null) {
+                    outputPredictionResultStream.println(
+                            instancesProcessed + "," +
+                                    predTime + "," +
+                                    trainTime + "," +
+                                    pred + "," +
+                                    trueClass + "," +
+                                    altura_arvore);
+                }
             }
 
             instancesProcessed++;
