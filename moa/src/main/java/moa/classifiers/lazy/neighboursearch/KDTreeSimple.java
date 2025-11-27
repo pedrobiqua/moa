@@ -2,7 +2,6 @@ package moa.classifiers.lazy.neighboursearch;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
@@ -44,16 +43,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
-        // MEDINDO A BUSCA
-        // long start = TimingUtils.getNanoCPUTimeOfCurrentThread();
         Node searchInstance = searchNearestNeighbor(root, target, 0);
-        // long end = TimingUtils.getNanoCPUTimeOfCurrentThread();
-
-        // double time = TimingUtils.nanoTimeToSeconds(end - start);
-
-        // if (outputFile != null) {
-        // outputFile.println("NN, " + time);
-        // }
         return searchInstance.instance;
 
     }
@@ -112,9 +102,9 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             return n1;
     }
 
-    private double dist(Instance n0, Instance n1) {
-        return Math.sqrt(distSquared(n0, n1));
-    }
+    // private double dist(Instance n0, Instance n1) {
+    // return Math.sqrt(distSquared(n0, n1));
+    // }
 
     private double distSquared(Instance n0, Instance n1) {
         double total = 0;
@@ -221,93 +211,6 @@ public class KDTreeSimple extends NearestNeighbourSearch {
                 buildBalancedTree(instsToTheRight, (depth + 1)), (depth % this.numDim));
     }
 
-    // ESSA FUNÇÃO DE REMOÇÃO AINDA ESTÁ ERRADO, REVER ISSO NO LIVRO
-    public void remove(Instance inst) {
-        if (inst != null) {
-            // Procura o nó
-            Node p = findNode(this.root, inst, 0);
-            if (p != null)
-                delete(p, p.splitDim);
-            // else {
-            // System.out.println("NÃO ENCONTRADO O ELEMENTO PARA: " + inst.toString());
-            // printInOrder();
-            // }
-        }
-    }
-
-    private Node findNode(Node p, Instance inst, int depth) {
-        if (p == null) {
-            return p;
-        }
-
-        if (Arrays.equals(p.instance.toDoubleArray(), inst.toDoubleArray()))
-            return p;
-
-        int dim = depth % numDim;
-        if (inst.toDoubleArray()[dim] < p.instance.toDoubleArray()[dim]) {
-            return findNode(p.left, inst, (depth + 1));
-        } else {
-            return findNode(p.right, inst, (depth + 1));
-        }
-    }
-
-    private void delete(Node p, int discriminator) {
-
-        if (p.isLeaf()) {
-            if (p.parent != null) {
-                if (p.parent.left == p)
-                    p.parent.left = null;
-                else if (p.parent.right == p)
-                    p.parent.right = null;
-            }
-            return;
-        }
-
-        Node q = null;
-        if (p.right != null) {
-            q = smallest(p.right, discriminator, ((discriminator + 1) % numDim));
-        } else {
-            q = smallest(p.left, discriminator, ((discriminator + 1) % numDim));
-            p.right = p.left;
-            p.left = null;
-        }
-
-        // p.instance = q.instance;
-        p.instance = q.instance.copy();
-        delete(q, discriminator);
-    }
-
-    private Node smallest(Node q, int i, int j) {
-        if (q == null) {
-            return null;
-        }
-
-        Node qq = q;
-        if (i == j) {
-            if (q.left != null) {
-                qq = q = q.left;
-            } else {
-                return q;
-            }
-        }
-
-        if (q.left != null) {
-            Node left = smallest(q.left, i, ((j + 1) % numDim));
-            if (qq.instance.toDoubleArray()[i] >= left.instance.toDoubleArray()[i]) {
-                qq = left;
-            }
-        }
-
-        if (q.right != null) {
-            Node right = smallest(q.right, i, ((j + 1) % numDim));
-            if (qq.instance.toDoubleArray()[i] >= right.instance.toDoubleArray()[i]) {
-                qq = right;
-            }
-        }
-
-        return qq;
-    }
-
     public boolean isBalanced() {
         // Função que mostra tamanho minimo da árvore
         // Math: \lfloor \log_2 n \rfloor
@@ -353,7 +256,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         return (int) logBase(2, numNodes);
     }
 
-    /////////////////////////////////
+    ////////////// FUNÇÕES DE VALIDAÇÃO ////////////
     public void print(PrintStream out) {
         printKDTree(root, 0, out);
     }
@@ -369,6 +272,29 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         // Recursively print left and right branches
         printKDTree(node.left, depth + 1, out);
         printKDTree(node.right, depth + 1, out);
+    }
+
+    public Instance findInstanceInTree(Instance inst) {
+        int depth = 0;
+        Node p = this.root;
+        double[] instance = inst.toDoubleArray();
+
+        while (p != null) {
+            int axis = depth % numDim;
+            // Verifica se já achou a instancia naquele nó
+            if (inst == p.instance) {
+                return p.instance;
+            }
+
+            if (instance[axis] < p.instance.toDoubleArray()[axis]) {
+                p = p.left;
+            } else {
+                p = p.right;
+            }
+            depth++;
+        }
+
+        return null;
     }
 
 }
