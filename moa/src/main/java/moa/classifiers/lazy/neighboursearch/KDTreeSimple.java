@@ -37,12 +37,19 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private int height_tree;
     private int numNodes;
 
+    private NormalizableDistance distance_fn = new EuclideanDistance();
+
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
     }
 
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
+        if (distance_fn.getInstances() == null) {
+            distance_fn.setInstances(new Instances(target.dataset(), 0));
+            distance_fn.setDontNormalize(true); // PARA NÃO NORMALIZAR!
+        }
+
         Node searchInstance = searchNearestNeighbor(root, target, 0);
         return searchInstance.instance;
 
@@ -69,8 +76,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node temp = searchNearestNeighbor(nextBranch, target, depth + 1);
         Node best = closest(temp, root, target);
 
-        double radiusSquared = distSquared(target, best.instance); // r
-        double dist = target_array[depth % numDim] - root.instance.toDoubleArray()[depth % numDim]; // r'
+        double radiusSquared = distance_fn.distance(target, best.instance); // r
+        double dist = Math.abs(target_array[depth % numDim] - root.instance.toDoubleArray()[depth % numDim]); // r'
 
         if (radiusSquared >= dist * dist) {
             temp = searchNearestNeighbor(otherBranch, target, depth + 1);
@@ -93,8 +100,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         if (n1 == null)
             return n0;
 
-        double d1 = distSquared(n0.instance, target);
-        double d2 = distSquared(n1.instance, target);
+        double d1 = distance_fn.distance(n0.instance, target);
+        double d2 = distance_fn.distance(n1.instance, target);
 
         if (d1 < d2)
             return n0;
@@ -113,8 +120,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         double[] p1 = n1.toDoubleArray();
 
         for (int i = 0; i < numDim; i++) {
-            double diff = Math.abs(p0[i] - p1[i]);
-            total += Math.pow(diff, 2);
+            double diff = p0[i] - p1[i];
+            total += (diff * diff);
         }
         return total;
     }
