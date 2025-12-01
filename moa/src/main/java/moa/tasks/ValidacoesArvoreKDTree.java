@@ -4,7 +4,7 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
 import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
-import moa.classifiers.lazy.neighboursearch.KDTree;
+// import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
 import moa.core.Example;
@@ -24,18 +24,8 @@ public class ValidacoesArvoreKDTree extends MainTask {
         throw new UnsupportedOperationException("Unimplemented method 'getTaskResultType'");
     }
 
-    public double distancia_euclidiana(Instance n1, Instance n2) {
-        double total = 0;
-        int numDim = n1.numAttributes() - 1;
-
-        double[] p0 = n1.toDoubleArray();
-        double[] p1 = n2.toDoubleArray();
-
-        for (int i = 0; i < numDim; i++) {
-            double diff = Math.abs(p0[i] - p1[i]);
-            total += Math.pow(diff, 2);
-        }
-        return total;
+    public static double distancia_euclidiana(EuclideanDistance dist_fn, Instance n1, Instance n2) {
+        return dist_fn.distance(n1, n2);
     }
 
     public static boolean sameInstance(Instance a, Instance b) {
@@ -54,11 +44,21 @@ public class ValidacoesArvoreKDTree extends MainTask {
         return true;
     }
 
+    public static boolean sameDistance(Instance a, Instance b, Instance target, EuclideanDistance dist_fn) {
+        double distance_a = distancia_euclidiana(dist_fn, target, a);
+        double distance_b = distancia_euclidiana(dist_fn, target, b);
+        return distance_a == distance_b;
+    }
+
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
         KDTreeSimple kdtree = null;
         monitor.setCurrentActivityDescription("TESTANDO INSERÇÃO E BUSCA DO NÓ INSERIDO");
+
+        ///////////// FUNÇÃO DE DISTÂNCIA UTILIZADA (SEM NORMALIZAÇÃO!)
+        EuclideanDistance dist_fn = new EuclideanDistance();
+        dist_fn.setDontNormalize(true);
 
         // Instances window = new Instances(stream.getHeader(), 0);
 
@@ -110,7 +110,7 @@ public class ValidacoesArvoreKDTree extends MainTask {
         // }
         // }
 
-        stream.restart();
+        // stream.restart();
         kdtree = null;
         monitor.setCurrentActivityDescription("TESTANDO BUSCA DO VIZINHO MAIS PRÓXIMO COMPARANDO COM O MOA");
         Instances window = new Instances(stream.getHeader(), 0); // AQUI VOU SEMPRE
@@ -123,18 +123,15 @@ public class ValidacoesArvoreKDTree extends MainTask {
 
             ///////////// MOA
             // BUSCANDO
-            Instance inst_kdtree_moa = null;
+            // Instance inst_kdtree_moa = null;
             Instance inst_truth_moa = null;
             try {
                 if (window.numInstances() > 0) {
-                    EuclideanDistance dist_fn = new EuclideanDistance();
-                    dist_fn.setDontNormalize(true);
-
-                    KDTree kdtree_moa = new KDTree(); // CRIA A ÁRVORE
-                    kdtree_moa.setDistanceFunction(dist_fn);
-                    kdtree_moa.setNormalizeNodeWidth(false);
-                    kdtree_moa.setInstances(window);
-                    inst_kdtree_moa = kdtree_moa.nearestNeighbour(inst); // BUSCA O VIZINHO
+                    // KDTree kdtree_moa = new KDTree(); // CRIA A ÁRVORE
+                    // kdtree_moa.setDistanceFunction(dist_fn);
+                    // kdtree_moa.setNormalizeNodeWidth(false);
+                    // kdtree_moa.setInstances(window);
+                    // inst_kdtree_moa = kdtree_moa.nearestNeighbour(inst); // BUSCA O VIZINHO
 
                     LinearNNSearch linear_moa = new LinearNNSearch();
                     linear_moa.setDistanceFunction(dist_fn);
@@ -168,16 +165,23 @@ public class ValidacoesArvoreKDTree extends MainTask {
 
             instanciasProcessadas++;
 
-            if (inst_kdtree_moa == null && inst_kdtree_pedro == null) {
+            if (inst_truth_moa == null && inst_kdtree_pedro == null) {
                 System.out.println("AMBAS NÃO DERAM RESULTADOS!");
-            } else if (!sameInstance(inst_kdtree_moa, inst_kdtree_pedro)) {
-                System.out.println(instanciasProcessadas);
-                System.out.println("INSTANCIA CORRETA: " + inst_truth_moa);
-                System.out.println(
-                        "NÃO É A MESMA INSTANCIA: \n pedro: " + inst_kdtree_pedro + "\n moa: " +
-                                inst_kdtree_moa + "\nDistância Pedro: " + distancia_euclidiana(inst,
-                                        inst_kdtree_pedro)
-                                + "\nDistância MOA: " + distancia_euclidiana(inst, inst_kdtree_moa));
+            } else if (!sameDistance(inst_kdtree_pedro, inst_truth_moa, inst, dist_fn)) {
+                System.out.println("NÃO SÃO A MESMA DISTÂNCIA | INSTANCIA: " + instanciasProcessadas);
+                System.out.println("DISTANCIAS: ");
+                System.out.println("MOA: " + distancia_euclidiana(dist_fn, inst, inst_truth_moa));
+                System.out.println("PED: " + distancia_euclidiana(dist_fn, inst, inst_kdtree_pedro));
+            } else if (!sameInstance(inst_truth_moa, inst_kdtree_pedro)) {
+                System.out.println("NÃO SÃO A MESMA INSTÂNCIA | INSTANCIA: " + instanciasProcessadas);
+                System.out.println("DISTANCIAS: ");
+                System.out.println("MOA: " + distancia_euclidiana(dist_fn, inst, inst_truth_moa));
+                System.out.println("PED: " + distancia_euclidiana(dist_fn, inst, inst_kdtree_pedro));
+            }
+
+            ////////////////// QUANTIDADE DE INSTÂNCIAS PROCESSADAS
+            if (instanciasProcessadas % 10000 == 0) {
+                System.out.println("INSTANCIAS PROCESSADAS" + instanciasProcessadas + " \n");
             }
         }
 

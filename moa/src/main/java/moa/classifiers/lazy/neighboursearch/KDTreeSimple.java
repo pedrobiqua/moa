@@ -46,8 +46,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
         if (distance_fn.getInstances() == null) {
-            distance_fn.setInstances(new Instances(target.dataset(), 0));
             distance_fn.setDontNormalize(true); // PARA NÃO NORMALIZAR!
+            distance_fn.setInstances(new Instances(target.dataset(), 0));
         }
 
         Node searchInstance = searchNearestNeighbor(root, target, 0);
@@ -76,10 +76,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node temp = searchNearestNeighbor(nextBranch, target, depth + 1);
         Node best = closest(temp, root, target);
 
-        double radiusSquared = distance_fn.distance(target, best.instance); // r
+        double bestDist = distance_fn.distance(target, best.instance); // r
         double dist = Math.abs(target_array[depth % numDim] - root.instance.toDoubleArray()[depth % numDim]); // r'
 
-        if (radiusSquared >= dist * dist) {
+        if (dist < bestDist) {
             temp = searchNearestNeighbor(otherBranch, target, depth + 1);
             best = closest(temp, best, target);
         }
@@ -107,23 +107,6 @@ public class KDTreeSimple extends NearestNeighbourSearch {
             return n0;
         else
             return n1;
-    }
-
-    // private double dist(Instance n0, Instance n1) {
-    // return Math.sqrt(distSquared(n0, n1));
-    // }
-
-    private double distSquared(Instance n0, Instance n1) {
-        double total = 0;
-
-        double[] p0 = n0.toDoubleArray();
-        double[] p1 = n1.toDoubleArray();
-
-        for (int i = 0; i < numDim; i++) {
-            double diff = p0[i] - p1[i];
-            total += (diff * diff);
-        }
-        return total;
     }
 
     @Override
