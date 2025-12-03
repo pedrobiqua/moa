@@ -31,16 +31,34 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
     }
 
+    public class NodeDist {
+        private Node node;
+        private double distance;
+
+        public NodeDist(Node node, double distance) {
+            this.node = node;
+            this.distance = distance;
+        }
+    }
+
     private Node root;
     private int numDim;
 
     private int height_tree;
     private int numNodes;
 
+    public int backtrackCount = 0; // DEBUG DO BACKTRACK
+
     private NormalizableDistance distance_fn = new EuclideanDistance();
 
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
+    }
+
+    @Override
+    public Instances kNearestNeighbours(Instance target, int k) throws Exception {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'kNearestNeighbours'");
     }
 
     @Override
@@ -55,17 +73,19 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     }
 
+    // AMANHA RESCREVER ISSO USANDO O HEAP E VENDO O ALGORITMO DO PROFESSOR
     private Node searchNearestNeighbor(Node root, Instance target, int depth) {
 
         if (root == null)
             return null;
 
-        double[] target_array = target.toDoubleArray();
         Node nextBranch = null;
         Node otherBranch = null;
 
+        int axis = depth % this.numDim;
+
         // compare the property appropriate for the current depth
-        if (target_array[depth % this.numDim] < root.instance.toDoubleArray()[depth % this.numDim]) {
+        if (target.value(axis) < root.instance.value(axis)) {
             nextBranch = root.left;
             otherBranch = root.right;
         } else {
@@ -74,39 +94,37 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
 
         Node temp = searchNearestNeighbor(nextBranch, target, depth + 1);
-        Node best = closest(temp, root, target);
 
-        double bestDist = distance_fn.distance(target, best.instance); // r
-        double dist = Math.abs(target_array[depth % numDim] - root.instance.toDoubleArray()[depth % numDim]); // r'
+        NodeDist bestNodeDist = closest(temp, root, target);
+
+        Node best = bestNodeDist.node;
+        double bestDist = bestNodeDist.distance; // r
+        double dist = Math.abs(target.value(axis) - root.instance.value(axis)); // r'
 
         if (dist < bestDist) {
+            backtrackCount++;
             temp = searchNearestNeighbor(otherBranch, target, depth + 1);
-            best = closest(temp, best, target);
+            best = closest(temp, best, target).node;
         }
 
         return best;
     }
 
-    @Override
-    public Instances kNearestNeighbours(Instance target, int k) throws Exception {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'kNearestNeighbours'");
-    }
-
-    private Node closest(Node n0, Node n1, Instance target) {
-        if (n0 == null)
-            return n1;
+    private NodeDist closest(Node n0, Node n1, Instance target) {
+        if (n0 == null) {
+            return new NodeDist(n1, distance_fn.distance(n1.instance, target));
+        }
 
         if (n1 == null)
-            return n0;
+            return new NodeDist(n0, distance_fn.distance(n0.instance, target));
 
         double d1 = distance_fn.distance(n0.instance, target);
         double d2 = distance_fn.distance(n1.instance, target);
 
         if (d1 < d2)
-            return n0;
+            return new NodeDist(n0, d1);
         else
-            return n1;
+            return new NodeDist(n1, d2);
     }
 
     @Override
@@ -176,29 +194,34 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
 
         int axis = depth % this.numDim;
-        ArrayList<Instance> instances_axis = new ArrayList<>();
 
+        // Copia as instâncias para um array temporário ordenável
+        ArrayList<Instance> sorted = new ArrayList<>(insts.size());
         for (int i = 0; i < insts.size(); i++) {
-            instances_axis.add(insts.get(i));
+            sorted.add(insts.get(i));
         }
 
-        instances_axis.sort((a, b) -> Double.compare(a.value(axis), b.value(axis)));
-        int median = instances_axis.size() / 2;
-        Instance medianInstance = instances_axis.get(median);
+        sorted.sort((a, b) -> Double.compare(a.value(axis), b.value(axis)));
 
-        Instances instsToTheLeft = new Instances(insts, insts.size());
-        Instances instsToTheRight = new Instances(insts, insts.size());
+        int median = sorted.size() / 2;
+        Instance medianInstance = sorted.get(median);
 
-        for (int i = 0; i < instances_axis.size(); i++) {
+        // Cria conjuntos vazios com o mesmo header
+        Instances left = new Instances(insts, 0);
+        Instances right = new Instances(insts, 0);
+
+        for (int i = 0; i < sorted.size(); i++) {
             if (i < median)
-                instsToTheLeft.add(instances_axis.get(i));
+                left.add(sorted.get(i));
             else if (i > median)
-                instsToTheRight.add(instances_axis.get(i));
+                right.add(sorted.get(i));
         }
 
-        // Monta a árvore em cima dessa recursão
-        return new Node(medianInstance, buildBalancedTree(instsToTheLeft, (depth + 1)),
-                buildBalancedTree(instsToTheRight, (depth + 1)), (depth % this.numDim));
+        return new Node(
+                medianInstance,
+                buildBalancedTree(left, depth + 1),
+                buildBalancedTree(right, depth + 1),
+                axis);
     }
 
     public boolean isBalanced() {
