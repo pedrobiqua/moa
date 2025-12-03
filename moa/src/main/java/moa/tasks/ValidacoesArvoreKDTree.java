@@ -55,7 +55,7 @@ public class ValidacoesArvoreKDTree extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
 
-        monitor.setCurrentActivityDescription("TESTANDO BUSCA DO VIZINHO MAIS PRÓXIMO COMPARANDO COM O MOA");
+        monitor.setCurrentActivityDescription("Validando KDTree...");
 
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
 
@@ -92,11 +92,13 @@ public class ValidacoesArvoreKDTree extends MainTask {
             // =====================================================================
             Instance moaNN = null;
             Instance moaTruth = null;
+
+            KDTree kdtreeMOA = new KDTree();
             try {
                 if (windowMOA.numInstances() > 0) {
 
                     // KDTree MOA
-                    KDTree kdtreeMOA = new KDTree();
+                    // KDTree kdtreeMOA = new KDTree();
                     kdtreeMOA.setDistanceFunction(distFn);
                     kdtreeMOA.setNormalizeNodeWidth(false);
                     kdtreeMOA.setMaxInstInLeaf(1);
@@ -154,26 +156,26 @@ public class ValidacoesArvoreKDTree extends MainTask {
             // =====================================================================
             // 3. KDTREE PEDRO BALANCEADA (sempre rebuild)
             // =====================================================================
-            Instance pedroBalanceadaNN = null;
-            try {
+            // Instance pedroBalanceadaNN = null;
+            // try {
 
-                if (instsBalanceada.numInstances() > 0) {
-                    kdtreePedroBalanceada = new KDTreeSimple(inst.numAttributes() - 1);
-                    kdtreePedroBalanceada.buildTree(instsBalanceada);
+            //     if (instsBalanceada.numInstances() > 0) {
+            //         kdtreePedroBalanceada = new KDTreeSimple(inst.numAttributes() - 1);
+            //         kdtreePedroBalanceada.buildTree(instsBalanceada);
 
-                    start = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                    kdtreePedroBalanceada.backtrackCount = 0;
-                    pedroBalanceadaNN = kdtreePedroBalanceada.nearestNeighbour(inst);
-                    end = TimingUtils.getNanoCPUTimeOfCurrentThread();
+            //         start = TimingUtils.getNanoCPUTimeOfCurrentThread();
+            //         kdtreePedroBalanceada.backtrackCount = 0;
+            //         pedroBalanceadaNN = kdtreePedroBalanceada.nearestNeighbour(inst);
+            //         end = TimingUtils.getNanoCPUTimeOfCurrentThread();
 
-                    timeBalanceada = TimingUtils.nanoTimeToSeconds(end - start);
-                }
+            //         timeBalanceada = TimingUtils.nanoTimeToSeconds(end - start);
+            //     }
 
-                instsBalanceada.add(inst);
+            //     instsBalanceada.add(inst);
 
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            // } catch (Exception e) {
+            //     e.printStackTrace();
+            // }
 
             instanciasProcessadas++;
 
@@ -187,12 +189,12 @@ public class ValidacoesArvoreKDTree extends MainTask {
                 System.out.println("MOA: " + distancia_euclidiana(distFn, inst, moaTruth));
                 System.out.println("PED: " + distancia_euclidiana(distFn, inst, pedroNN));
                 return null;
-            } else if (!sameInstance(moaTruth, pedroNN) || !sameInstance(moaTruth, pedroBalanceadaNN)) {
-                System.out.println("NÃO SÃO A MESMA INSTÂNCIA | INST: " + instanciasProcessadas);
-                System.out.println("MOA: " + distancia_euclidiana(distFn, inst, moaTruth));
-                System.out.println("PED: " + distancia_euclidiana(distFn, inst, pedroNN));
-                System.out.println("BAL: " + distancia_euclidiana(distFn, inst, pedroBalanceadaNN));
-            }
+            } // else if (!sameInstance(moaTruth, pedroNN) || !sameInstance(moaTruth, pedroBalanceadaNN)) {
+            //     System.out.println("NÃO SÃO A MESMA INSTÂNCIA | INST: " + instanciasProcessadas);
+            //     System.out.println("MOA: " + distancia_euclidiana(distFn, inst, moaTruth));
+            //     System.out.println("PED: " + distancia_euclidiana(distFn, inst, pedroNN));
+            //     System.out.println("BAL: " + distancia_euclidiana(distFn, inst, pedroBalanceadaNN));
+            // }
 
             // =====================================================================
             // 5. CRITÉRIO DE PARADA (VERIFICAÇÃO DOS TEMPOS DE CADA ESTRUTURA)
@@ -212,11 +214,17 @@ public class ValidacoesArvoreKDTree extends MainTask {
             // =====================================================================
             // 6. LOG PERIÓDICO
             // =====================================================================
-            if (instanciasProcessadas % 10000 == 0) {
+            if (instanciasProcessadas % 1000 == 0) {
                 System.out.println("INSTANCIAS PROCESSADAS " + instanciasProcessadas);
                 System.out.println("TEMPO MOA: " + timeMOA);
+                System.out.println("TEMPO MOA KDTREE: " + timeMOAKDTree);
+                System.out.println("-------------------------");
                 System.out.println("TEMPO PEDRO: " + timePedro);
-                System.out.println("TEMPO BALANCEADA: " + timeBalanceada);
+                System.out.println("BACKTRACK PEDRO: " + kdtreePedro.backtrackCount);
+                System.out.println("-------------------------");
+                System.out.println("BACKTRACK MOA: " + kdtreeMOA.backtrackCount);
+                // System.out.println("TEMPO BALANCEADA: " + timeBalanceada);
+                // System.out.println("BACKTRACK BALANCEADA: " + kdtreePedroBalanceada.backtrackCount);
             }
         }
 
