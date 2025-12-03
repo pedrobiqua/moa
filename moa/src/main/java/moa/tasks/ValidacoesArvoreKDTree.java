@@ -222,7 +222,7 @@ public class ValidacoesArvoreKDTree extends MainTask {
                 System.out.println("TEMPO PEDRO: " + timePedro);
                 System.out.println("BACKTRACK PEDRO: " + kdtreePedro.backtrackCount);
                 System.out.println("-------------------------");
-                System.out.println("BACKTRACK MOA: " + kdtreeMOA.backtrackCount);
+                // System.out.println("BACKTRACK MOA: " + kdtreeMOA.backtrackCount);
                 // System.out.println("TEMPO BALANCEADA: " + timeBalanceada);
                 // System.out.println("BACKTRACK BALANCEADA: " + kdtreePedroBalanceada.backtrackCount);
             }
