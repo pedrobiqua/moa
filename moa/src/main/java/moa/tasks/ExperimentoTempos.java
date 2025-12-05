@@ -6,7 +6,9 @@ import java.io.PrintStream;
 
 import com.github.javacliparser.FileOption;
 import com.yahoo.labs.samoa.instances.Instance;
+import com.yahoo.labs.samoa.instances.Instances;
 
+import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.core.Example;
 import moa.core.ObjectRepository;
@@ -70,7 +72,10 @@ public class ExperimentoTempos extends MainTask {
                 Instance inst = (Instance) ex.getData();
 
                 if (kdtree == null) {
+                    EuclideanDistance distFn = new EuclideanDistance();
                     kdtree = new KDTreeSimple(inst.numAttributes() - 1);
+                    kdtree.setInstances(new Instances(inst.dataset(), 0));
+                    kdtree.setDistanceFunction(distFn);
                 }
 
                 // BUSCA
