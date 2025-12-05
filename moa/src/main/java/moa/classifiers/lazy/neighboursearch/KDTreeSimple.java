@@ -41,7 +41,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private int height_tree;
     private int numNodes;
 
-    // private double[] m_DistanceList; // Usar isso no getDistances();
+    private double[] m_DistanceList; // Usar isso no getDistances();
 
     public int backtrackCount = 0; // DEBUG DO BACKTRACK
 
@@ -66,7 +66,35 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     @Override
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
-        return null;
+        checkMissing(target);
+
+        MyHeap heap = new MyHeap(k);
+        findNearestNeighbours(root, target, k, heap, 0, 0.0);
+
+        Instances neighbours = new Instances(m_Instances, (heap.size() + heap.noOfKthNearest()));
+        m_DistanceList = new double[heap.size() + heap.noOfKthNearest()];
+        int[] indices = new int[heap.size() + heap.noOfKthNearest()];
+        int i = indices.length - 1;
+        MyHeapElement h;
+        while (heap.noOfKthNearest() > 0) {
+            h = heap.getKthNearest();
+            indices[i] = h.index;
+            m_DistanceList[i] = h.distance;
+            i--;
+        }
+        while (heap.size() > 0) {
+            h = heap.get();
+            indices[i] = h.index;
+            m_DistanceList[i] = h.distance;
+            i--;
+        }
+        m_DistanceFunction.postProcessDistances(m_DistanceList);
+
+        for (int idx = 0; idx < indices.length; idx++) {
+            neighbours.add(m_Instances.instance(indices[idx]));
+        }
+
+        return neighbours;
     }
 
     @Override
@@ -147,6 +175,88 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         return bestDist;
     }
 
+    private void findNearestNeighbours(Node root, Instance target, int k, MyHeap heap,
+            int depth,
+            double accumulatedDist) throws Exception {
+
+        if (root == null) {
+            return;
+        }
+
+        // ------------------------------
+        // 1) Processa o nó atual (POIS sua árvore tem instância em todo nó)
+        // ------------------------------
+        double dist;
+
+        if (heap.size() < k) {
+            dist = distance_fn.distance(
+                    m_Instances.instance(root.node_index),
+                    target,
+                    Double.POSITIVE_INFINITY);
+            heap.put(root.node_index, dist);
+
+        } else {
+            MyHeapElement worst = heap.peek(); // pior entre os k melhores
+            dist = distance_fn.distance(
+                    m_Instances.instance(root.node_index),
+                    target,
+                    worst.distance);
+
+            if (dist < worst.distance) {
+                heap.putBySubstitute(root.node_index, dist);
+            } else if (dist == worst.distance) {
+                heap.putKthNearest(root.node_index, dist);
+            }
+        }
+
+        // ------------------------------
+        // 2) Se for folha, acabou
+        // ------------------------------
+        if (root.isLeaf()) {
+            return;
+        }
+
+        // ------------------------------
+        // 3) Decide branches
+        // ------------------------------
+        int axis = depth % this.numDim;
+
+        double rootValue = m_Instances.instance(root.node_index).value(axis);
+        double targetValue = target.value(axis);
+
+        Node nextBranch, otherBranch;
+
+        if (targetValue < rootValue) {
+            nextBranch = root.left;
+            otherBranch = root.right;
+        } else {
+            nextBranch = root.right;
+            otherBranch = root.left;
+        }
+
+        // ------------------------------
+        // 4) Desce no branch mais provável
+        // ------------------------------
+        findNearestNeighbours(nextBranch, target, k, heap, depth + 1, accumulatedDist);
+
+        // ------------------------------
+        // 5) Poda (igual ao MOA e igual ao seu validador)
+        // ------------------------------
+        double diff = distance_fn.sqDifference(axis, targetValue, rootValue);
+        double possibleDist = accumulatedDist + diff;
+
+        if (heap.size() < k) {
+            // ainda precisa visitar tudo até encher o heap
+            findNearestNeighbours(otherBranch, target, k, heap, depth + 1, possibleDist);
+            return;
+        }
+
+        // heap cheio → compara com o pior entre os k melhores
+        if (heap.peek().distance >= possibleDist) {
+            findNearestNeighbours(otherBranch, target, k, heap, depth + 1, possibleDist);
+        }
+    }
+
     protected void checkMissing(Instance ins) throws Exception {
         for (int j = 0; j < ins.numValues(); j++) {
             if (ins.index(j) != ins.classIndex())
@@ -160,7 +270,12 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     @Override
     public double[] getDistances() throws Exception {
-        throw new UnsupportedOperationException("Unimplemented method 'getDistances'");
+        if (m_Instances == null || m_DistanceList == null)
+            throw new Exception("The tree has not been supplied with a set of "
+                    + "instances or getDistances() has been called "
+                    + "before calling kNearestNeighbours().");
+        return m_DistanceList;
+
     }
 
     @Override
