@@ -62,7 +62,8 @@ public class ExperimentoTempos extends MainTask {
         long numeroInstancias = 0;
 
         // Cabeçalho
-        outputStream.println("numero_instancias,tempo_insert,tempo_busca,altura_arvore_pos_insercao");
+        outputStream.println(
+                "numero_instancias,tempo_insert,tempo_busca,altura_arvore_pos_insercao,profundidade_insercao,profundidade_busca,backtracking");
         while (stream.hasMoreInstances()) {
             try {
                 long start_search, end_search, start_insert, end_insert;
@@ -96,7 +97,8 @@ public class ExperimentoTempos extends MainTask {
 
                 // ADICIONA NO ARQUIVO
                 outputStream.println(
-                        numeroInstancias + "," + temp_insert + "," + temp_search + "," + kdtree.getHeightTree());
+                        numeroInstancias + "," + temp_insert + "," + temp_search + "," + kdtree.getHeightTree() + ","
+                                + kdtree.depthInsert + "," + kdtree.depthSearch + "," + kdtree.backtrackCount);
 
             } catch (Exception e) {
                 e.printStackTrace();

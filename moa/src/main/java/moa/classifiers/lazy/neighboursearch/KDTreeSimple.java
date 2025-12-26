@@ -12,12 +12,14 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         Node left, right, parent;
         int splitDim;
         int node_index;
+        boolean active;
 
         public Node(int node_index, Node left, Node right, int splitDim) {
             this.node_index = node_index;
             this.left = left;
             this.right = right;
             this.splitDim = splitDim;
+            this.active = true;
         }
 
         public boolean isLeaf() {
@@ -38,14 +40,17 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private Node root;
     private int numDim;
 
-    private int height_tree;
-    private int numNodes;
-
-    private double[] m_DistanceList; // Usar isso no getDistances();
-
-    public int backtrackCount = 0; // DEBUG DO BACKTRACK
+    private double[] m_DistanceList;
 
     private EuclideanDistance distance_fn = new EuclideanDistance();
+
+    // METRICAS DA ÁRVORE
+    private int height_tree;
+    private int numNodes;
+    // METRICAS POR INSTÂNCIA
+    public int backtrackCount = 0;
+    public int depthSearch = 0;
+    public int depthInsert = 0;
 
     public KDTreeSimple(int numDim) {
         this.numDim = numDim;
@@ -69,6 +74,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         checkMissing(target);
 
         MyHeap heap = new MyHeap(k);
+        depthSearch = 0; // Sempre zerar a cada busca
         findNearestNeighbours(root, target, k, heap, 0, 0.0);
 
         Instances neighbours = new Instances(m_Instances, (heap.size() + heap.noOfKthNearest()));
@@ -100,13 +106,19 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
         NodeDist bestDist = new NodeDist(null, Double.MAX_VALUE);
+        // Zerando as contagens, para coleta de metricas
+        depthSearch = 0;
+        backtrackCount = 0;
         NodeDist searchInstance = searchNearestNeighbor(root, target, 0, 0.0, bestDist);
         return searchInstance.node.node_index >= 0 ? m_Instances.instance(searchInstance.node.node_index) : null;
     }
 
-    // KD-Tree Nearest Neighbor — versão correta com accumulatedDist
     private NodeDist searchNearestNeighbor(Node root, Instance target, int depth,
             double accumulatedDist, NodeDist bestDist) {
+
+        if (depth > depthSearch) {
+            depthSearch = depth;
+        }
 
         if (root == null) {
             return bestDist;
@@ -178,6 +190,11 @@ public class KDTreeSimple extends NearestNeighbourSearch {
     private void findNearestNeighbours(Node root, Instance target, int k, MyHeap heap,
             int depth,
             double accumulatedDist) throws Exception {
+
+        // Coletando a profundidade max na busca
+        if (depth > depthSearch) {
+            depthSearch = depth;
+        }
 
         if (root == null) {
             return;
@@ -280,6 +297,7 @@ public class KDTreeSimple extends NearestNeighbourSearch {
 
     @Override
     public void update(Instance ins) throws Exception {
+        depthInsert = 0;
         insert(ins);
         // Preciso disso para poder normalizar durante o cálculo das distancias, se não
         // o backtrack fica errado
@@ -306,6 +324,8 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
 
         numNodes++;
+        depthInsert = depth;
+
         m_Instances.add(ins);
         if (root == null) {
             root = new Node(0, null, null, 0);
