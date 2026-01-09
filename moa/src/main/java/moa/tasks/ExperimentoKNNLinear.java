@@ -14,7 +14,7 @@ import moa.core.TimingUtils;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
 
-public class ExperimenterTimingKDTree extends MainTask {
+public class ExperimentoKNNLinear extends MainTask {
 
     public ClassOption streamOption = new ClassOption("stream", 's',
             "Stream to evaluate on.", ExampleStream.class,

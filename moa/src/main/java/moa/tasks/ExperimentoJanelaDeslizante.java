@@ -13,12 +13,11 @@ import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.core.Example;
 import moa.core.ObjectRepository;
-import moa.core.TimingUtils;
+// import moa.core.TimingUtils;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
 
-public class ExperimentoTempos extends MainTask {
-
+public class ExperimentoJanelaDeslizante extends MainTask {
     //////////////////// PARAMETROS DO EXPERIMENTO
     public ClassOption streamOption = new ClassOption("stream", 's',
             "Stream to evaluate on.", ExampleStream.class,
@@ -33,6 +32,14 @@ public class ExperimentoTempos extends MainTask {
             "Quantidade de instancias para medir o CPU RAM HOURS.",
             1000, 0, Integer.MAX_VALUE);
 
+    public IntOption windowSizeOption = new IntOption(
+            "windowSize",
+            'w',
+            "Tamanho da janela deslizante",
+            1000,
+            10,
+            Integer.MAX_VALUE);
+
     @Override
     public Class<?> getTaskResultType() {
         return null;
@@ -41,7 +48,6 @@ public class ExperimentoTempos extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ////////////////////////// CONFIGURAÇÕES
-
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
         monitor.setCurrentActivity("EXP: TEMPO KDTREE", -1.0);
 
@@ -64,25 +70,17 @@ public class ExperimentoTempos extends MainTask {
             System.out.println("NÃO TEM ARQUIVO DE SAÍDA");
             return null;
         }
+
+        // FILA CIRCULAR ONDE VAI FICAR A JANELA DESLIZANTE
+        CircularQueue window = new CircularQueue(windowSizeOption.getValue());
+        KDTreeSimple kdtree = null;
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        KDTreeSimple kdtree = null;
-        long numeroInstancias = 0;
-
-        // Cabeçalho
-        outputStream.println(
-                "numero_instancias,tempo_insert,tempo_busca,altura_arvore_pos_insercao,profundidade_insercao,profundidade_busca,backtracking,RAMHours");
-        long evaluateStartTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-        long lastEvaluateStartTime = evaluateStartTime;
-        double RAMHours = 0.0;
         while (stream.hasMoreInstances()) {
             try {
-                long start_search, end_search, start_insert, end_insert;
-                double temp_insert, temp_search = 0.0;
 
                 Example<?> ex = stream.nextInstance();
                 Instance inst = (Instance) ex.getData();
-
                 if (kdtree == null) {
                     EuclideanDistance distFn = new EuclideanDistance();
                     kdtree = new KDTreeSimple(inst.numAttributes() - 1);
@@ -91,35 +89,17 @@ public class ExperimentoTempos extends MainTask {
                 }
 
                 // BUSCA
-                if (kdtree.getNumNodes() > 0) {
-                    start_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                if (!window.isEmpty())
                     kdtree.nearestNeighbour(inst);
-                    end_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                    temp_search = TimingUtils.nanoTimeToSeconds(end_search - start_search);
-                }
 
-                // INSERE
-                start_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                if (window.isFull())
+                    kdtree.delete(inst);
+
                 kdtree.update(inst);
-                end_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                temp_insert = TimingUtils.nanoTimeToSeconds(end_insert - start_insert);
+                window.add(inst);
 
-                numeroInstancias++;
-
-                if (numeroInstancias % instancesFrequencyOption.getValue() == 0 || stream.hasMoreInstances() == false) {
-                    long evaluateTime = TimingUtils.getNanoCPUTimeOfCurrentThread();
-                    double timeIncrement = TimingUtils.nanoTimeToSeconds(evaluateTime - lastEvaluateStartTime);
-                    double RAMHoursIncrement = kdtree.measureByteSize() / (1024.0 * 1024.0 * 1024.0); // GBs
-                    RAMHoursIncrement *= (timeIncrement / 3600.0); // Hours
-                    RAMHours += RAMHoursIncrement;
-                    lastEvaluateStartTime = evaluateTime;
-                }
-
-                // ADICIONA NO ARQUIVO
-                outputStream.println(
-                        numeroInstancias + "," + temp_insert + "," + temp_search + "," + kdtree.getHeightTree() + ","
-                                + kdtree.depthInsert + "," + kdtree.depthSearch + "," + kdtree.backtrackCount + ","
-                                + RAMHours);
+                // APENAS DEBUG
+                // window.showQueue();
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -131,6 +111,73 @@ public class ExperimentoTempos extends MainTask {
         }
 
         return null;
+
+    }
+
+    public class CircularQueue {
+
+        int first, last, size, nItens;
+        Instance[] window;
+
+        public CircularQueue(int size) {
+            // Inicialização da fila circular
+            this.size = size;
+            window = new Instance[this.size];
+            this.first = 0;
+            this.last = -1;
+            this.nItens = 0;
+        }
+
+        private boolean isFull() {
+            return nItens == size;
+        }
+
+        private boolean isEmpty() {
+            return nItens == 0;
+        }
+
+        public void showQueue() {
+            int i, cont;
+            for (cont = 0, i = first; cont < nItens; cont++) {
+                System.out.println(window[i]);
+                i++;
+
+                if (i == size) {
+                    i = 0;
+                }
+            }
+
+            System.out.println();
+        }
+
+        public void add(Instance inst) {
+            // Essa função serve para sempre colocar um novo valor na fila circular
+            if (isFull()) {
+                remove();
+            }
+            insert(inst);
+        }
+
+        private void insert(Instance inst) {
+            if (last == size - 1)
+                last = -1;
+
+            last++;
+            window[last] = inst;
+            nItens++;
+        }
+
+        private Instance remove() {
+            Instance temp = window[first];
+            window[first] = null;
+            first++;
+            if (first == size) {
+                first = 0;
+            }
+
+            nItens--;
+            return temp;
+        }
 
     }
 

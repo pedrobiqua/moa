@@ -3,8 +3,12 @@ package moa.classifiers.lazy.neighboursearch;
 import java.io.PrintStream;
 import java.util.Arrays;
 
+import javax.management.InstanceNotFoundException;
+
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
+
+import moa.core.SizeOf;
 
 public class KDTreeSimple extends NearestNeighbourSearch {
 
@@ -274,6 +278,19 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         }
     }
 
+    private boolean isInstanceEqual(Instance inst1, Instance inst2) {
+
+        double[] infoInst1 = inst1.toDoubleArray();
+        double[] infoInst2 = inst2.toDoubleArray();
+
+        for (int i = 0; i < infoInst1.length; i++) {
+            if (infoInst1[i] != infoInst2[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     protected void checkMissing(Instance ins) throws Exception {
         for (int j = 0; j < ins.numValues(); j++) {
             if (ins.index(j) != ins.classIndex())
@@ -345,6 +362,50 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         if (this.height_tree < depth) {
             this.height_tree = depth;
         }
+    }
+
+    // METODO DE BUSCA, PRECISO TESTAR SE ISSO FUNCIONA
+    public Node search(Instance inst, Node node) throws Exception {
+        double[] instInfo = inst.toDoubleArray();
+
+        if (node == null)
+            return null;
+
+        if (isInstanceEqual(inst, m_Instances.instance(node.node_index)) && node.active)
+            return node;
+
+        Node nodeToReturn = null;
+
+        if (instInfo[node.splitDim] < m_Instances.instance(node.node_index).toDoubleArray()[node.splitDim]) {
+            nodeToReturn = search(inst, node.left);
+        } else {
+            nodeToReturn = search(inst, node.right);
+        }
+
+        return nodeToReturn;
+
+    }
+
+    // METODO DE DELETE | BUSCA O NO E REMOVE
+    public void delete(Instance inst) throws Exception {
+        Node nodeToRemove = search(inst, root);
+
+        if (nodeToRemove == null)
+            throw new InstanceNotFoundException(
+                    "Instance not found on KDTree. Is there any missing data on the dataset?");
+
+        delete(nodeToRemove);
+        this.numNodes--;
+    }
+
+    // DELETA O NÓ
+    protected void delete(Node p) throws Exception {
+
+        if (p.isLeaf()) {
+            p = null;
+            return;
+        }
+        p.active = false;
     }
 
     public void buildTree(Instances ins) {
@@ -450,6 +511,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         // Recursively print left and right branches
         printKDTree(node.left, depth + 1, out);
         printKDTree(node.right, depth + 1, out);
+    }
+
+    public long measureByteSize() {
+        return SizeOf.fullSizeOf(this);
     }
 
     // public Instance findInstanceInTree(Instance inst) {
