@@ -196,6 +196,9 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         return bestDist;
     }
 
+    // Reescrever a busca do vizinho mais próximo
+    // Usar como referencia do código do Eduardo, trocar para usar a função euclidiana
+    // Acho que vou fazer o resto em casa, não tem ninguem no lab
     public Instance nearestNeighbourActive(Instance target) throws Exception {
         NodeDist bestDist = new NodeDist(null, Double.MAX_VALUE);
         // Zerando as contagens, para coleta de metricas
