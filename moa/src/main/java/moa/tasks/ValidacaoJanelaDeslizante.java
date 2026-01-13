@@ -10,15 +10,14 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
 import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
+import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.KDTreeSimple;
 import moa.core.Example;
 import moa.core.ObjectRepository;
-// import moa.core.TimingUtils;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
 
-public class ExperimentoJanelaDeslizante extends MainTask {
-    //////////////////// PARAMETROS DO EXPERIMENTO
+public class ValidacaoJanelaDeslizante extends MainTask {
     public ClassOption streamOption = new ClassOption("stream", 's',
             "Stream to evaluate on.", ExampleStream.class,
             "generators.RandomTreeGenerator");
@@ -36,8 +35,8 @@ public class ExperimentoJanelaDeslizante extends MainTask {
             "windowSize",
             'w',
             "Tamanho da janela deslizante",
-            5,
-            4,
+            1000,
+            10,
             Integer.MAX_VALUE);
 
     @Override
@@ -45,11 +44,49 @@ public class ExperimentoJanelaDeslizante extends MainTask {
         return null;
     }
 
+    public static boolean compareInstances(Instance a, Instance b) {
+
+        // Verifica quantidade de atributos
+        if (a.numAttributes() != b.numAttributes())
+            return false;
+
+        double[] da = a.toDoubleArray();
+        double[] db = b.toDoubleArray();
+
+        int numAtributos = a.numAttributes();
+
+        for (int i = 0; i < numAtributos; i++) {
+            double va = da[i];
+            double vb = db[i];
+
+            // Trata NaN corretamente (NaN != NaN)
+            if (Double.isNaN(va) && Double.isNaN(vb))
+                continue;
+
+            if (va != vb)
+                return false;
+        }
+
+        return true;
+    }
+
+    public static double distancia_euclidiana(EuclideanDistance dist_fn, Instance n1, Instance n2) {
+        return dist_fn.distance(n1, n2);
+    }
+
+    public static boolean sameDistance(Instance a, Instance b, Instance target, EuclideanDistance dist_fn) {
+        double distance_a = distancia_euclidiana(dist_fn, target, a);
+        double distance_b = distancia_euclidiana(dist_fn, target, b);
+        System.out.println("A:" + distance_a);
+        System.out.println("B:" + distance_b);
+        return distance_a == distance_b;
+    }
+
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ////////////////////////// CONFIGURAÇÕES
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
-        monitor.setCurrentActivity("EXP: TEMPO KDTREE", -1.0);
+        monitor.setCurrentActivity("VAL: KDTREE WINDOW", -1.0);
 
         File outputTempFile = this.outputFileOption.getFile();
         PrintStream outputStream = null;
@@ -74,25 +111,38 @@ public class ExperimentoJanelaDeslizante extends MainTask {
         // FILA CIRCULAR ONDE VAI FICAR A JANELA DESLIZANTE
         CircularQueue window = new CircularQueue(windowSizeOption.getValue());
         KDTreeSimple kdtree = null;
+        KDTree kdtreeMoa = null;
         ///////////////////////////////////////////////////////////////////////////////////////////
+        /// TODO 13/01: COPIAR A FUNÇÃO DE BUSCA DO EDUARDO E
+        // VERIFICAR SE BATE COM O DO MOA.
+        // VER COM O PROFESSOR SOBRE A MÁQUINA
 
-        int contador = 0;
-
+        EuclideanDistance distFn = new EuclideanDistance();
+        int instanciasProcessadas = 0;
         while (stream.hasMoreInstances()) {
             try {
 
                 Example<?> ex = stream.nextInstance();
                 Instance inst = (Instance) ex.getData();
                 if (kdtree == null) {
-                    EuclideanDistance distFn = new EuclideanDistance();
                     kdtree = new KDTreeSimple(inst.numAttributes() - 1);
                     kdtree.setInstances(new Instances(inst.dataset(), 0));
                     kdtree.setDistanceFunction(distFn);
                 }
 
                 // BUSCA na árvore ignorando as inativas
-                // if (!window.isEmpty())
-                // kdtree.nearestNeighbour(inst);
+                Instance inst_pedro = null;
+                Instance inst_moa = null;
+
+                if (!window.isEmpty()) {
+                    kdtreeMoa = new KDTree();
+                    kdtreeMoa.setMaxInstInLeaf(1);
+                    kdtreeMoa.setDistanceFunction(distFn);
+                    kdtreeMoa.setInstances(window.toInstances());
+
+                    inst_pedro = kdtree.nearestNeighbourActive(inst);
+                    inst_moa = kdtreeMoa.nearestNeighbour(inst);
+                }
 
                 // Se estiver cheio remove a primeira instância
                 if (window.isFull())
@@ -102,11 +152,20 @@ public class ExperimentoJanelaDeslizante extends MainTask {
                 kdtree.update(inst);
                 window.add(inst);
 
-                if (contador < 10) {
-                    window.showQueue();
-                }
+                instanciasProcessadas++;
 
-                contador++;
+                if (inst_pedro != null && inst_moa != null) {
+                    if (!compareInstances(inst_pedro, inst_moa)) {
+                        window.showQueue();
+
+                        System.out.println("INSTÂNCIAS PROCESSADAS: " + instanciasProcessadas);
+                        sameDistance(inst_moa, inst_pedro, inst, distFn);
+                        System.out.println(inst_moa);
+                        System.out.println(inst_pedro);
+                        System.out.println("KDTREE DO PED NÃO BATE COM O GROUNDTRUTH");
+                        return null;
+                    }
+                }
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -142,9 +201,9 @@ public class ExperimentoJanelaDeslizante extends MainTask {
             return nItens == size;
         }
 
-        // private boolean isEmpty() {
-        // return nItens == 0;
-        // }
+        private boolean isEmpty() {
+            return nItens == 0;
+        }
 
         public void showQueue() {
             int i, cont;
@@ -191,6 +250,31 @@ public class ExperimentoJanelaDeslizante extends MainTask {
 
             nItens--;
             return temp;
+        }
+
+        public Instances toInstances() {
+            if (isEmpty()) {
+                return null;
+            }
+
+            Instance ref = window[first];
+            Instances dataset = new Instances(ref.dataset(), nItens);
+
+            int i = first;
+            for (int count = 0; count < nItens; count++) {
+                Instance inst = window[i];
+
+                if (inst != null) {
+                    dataset.add(inst);
+                }
+
+                i++;
+                if (i == size) {
+                    i = 0;
+                }
+            }
+
+            return dataset;
         }
 
     }

@@ -29,6 +29,10 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         public boolean isLeaf() {
             return (this.left == null) && (this.right == null);
         }
+
+        public boolean isActive() {
+            return this.active;
+        }
     }
 
     public class NodeDist {
@@ -174,9 +178,99 @@ public class KDTreeSimple extends NearestNeighbourSearch {
         double accumulatedPossible = accumulatedDist + diff;
 
         if (accumulatedPossible < bestDist.distance && otherBranch != null) {
+            // CONTAGEM DO BACKTRACKING
             backtrackCount++;
 
             NodeDist novo = searchNearestNeighbor(
+                    otherBranch,
+                    target,
+                    depth + 1,
+                    accumulatedPossible,
+                    bestDist);
+
+            if (novo.distance < bestDist.distance) {
+                return novo;
+            }
+        }
+
+        return bestDist;
+    }
+
+    public Instance nearestNeighbourActive(Instance target) throws Exception {
+        NodeDist bestDist = new NodeDist(null, Double.MAX_VALUE);
+        // Zerando as contagens, para coleta de metricas
+        depthSearch = 0;
+        backtrackCount = 0;
+        NodeDist searchInstance = searchNearestNeighborActive(root, target, 0, 0.0, bestDist);
+        return searchInstance.node.node_index >= 0 ? m_Instances.instance(searchInstance.node.node_index) : null;
+    }
+
+    private NodeDist searchNearestNeighborActive(Node root, Instance target, int depth,
+            double accumulatedDist, NodeDist bestDist) {
+
+        if (depth > depthSearch) {
+            depthSearch = depth;
+        }
+
+        if (root == null) {
+            return bestDist;
+        }
+
+        // Caso folha
+        if (root.isLeaf()) {
+            if (root.isActive()) {
+                double dist = distance_fn.distance(
+                        m_Instances.instance(root.node_index),
+                        target,
+                        Double.POSITIVE_INFINITY);
+
+                if (dist < bestDist.distance) {
+                    return new NodeDist(root, dist);
+                }
+            }
+
+            return bestDist;
+        }
+
+        int axis = depth % this.numDim;
+
+        Node nextBranch, otherBranch;
+
+        double rootValue = m_Instances.instance(root.node_index).value(axis);
+        double targetValue = target.value(axis);
+
+        if (targetValue < rootValue) {
+            nextBranch = root.left;
+            otherBranch = root.right;
+        } else {
+            nextBranch = root.right;
+            otherBranch = root.left;
+        }
+
+        // Desce no branch mais provável
+        bestDist = searchNearestNeighborActive(nextBranch, target, depth + 1, accumulatedDist, bestDist);
+
+        // Avalia o valor do nó atual
+        if (root.isActive()) {
+            double distance = distance_fn.distance(
+                    m_Instances.instance(root.node_index),
+                    target,
+                    Double.POSITIVE_INFINITY);
+
+            if (distance < bestDist.distance) {
+                bestDist = new NodeDist(root, distance);
+            }
+        }
+
+        // Distância mínima possível ao outro subespaço
+        double diff = distance_fn.sqDifference(axis, targetValue, rootValue);
+        double accumulatedPossible = accumulatedDist + diff;
+
+        if (accumulatedPossible < bestDist.distance && otherBranch != null) {
+            // CONTAGEM DO BACKTRACKING
+            backtrackCount++;
+
+            NodeDist novo = searchNearestNeighborActive(
                     otherBranch,
                     target,
                     depth + 1,
