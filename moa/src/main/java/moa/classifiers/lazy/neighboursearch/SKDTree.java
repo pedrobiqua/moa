@@ -22,6 +22,7 @@ public class SKDTree extends NearestNeighbourSearch {
     public int numNodes;
     public int heightTree;
     public int backtrack;
+    public int maxDepthSearch;
 
     public SKDTree(InstancesHeader instHead) {
         // Por padrão no calculo da distância não uso normalização
@@ -51,8 +52,13 @@ public class SKDTree extends NearestNeighbourSearch {
             throw new Exception("The K-d tree was not initialized. Please use the method setInstances(Instances)");
         }
 
+        this.backtrack = 0; // Reinicia a variavel que conta o número de backtracks
+                            // Eu acredito que a inserção do jeito que é hoje ajuda a
+                            // montar uma árvore que gera muitos backtracks
+        this.maxDepthSearch = 0;
+
         MyHeap heap = new MyHeap(k);
-        findNearestNeighbours(target, root, k, heap);
+        findNearestNeighbours(target, root, k, heap, 0);
 
         // Pega as distancias encontradas e os pontos
         Instances neighbours = new Instances(m_Instances, (heap.size() + heap
@@ -111,13 +117,10 @@ public class SKDTree extends NearestNeighbourSearch {
             throw new InstanceNotFoundException(
                     "Instance not found on KDTree. Is there any missing data on the dataset?");
 
-        if (nodeToRemove.index == 113) {
-            System.out.println("TESTEEEEEEEEEEEE");
-        }
-
-        if (nodeToRemove.isALeaf()) { // Apenas para debug
-            System.out.println("Removendo uma instancia folha node index: " + nodeToRemove.index);
-        }
+        // if (nodeToRemove.isALeaf()) { // Apenas para debug
+        // System.out.println("Removendo uma instancia folha node index: " +
+        // nodeToRemove.index);
+        // }
         delete(nodeToRemove);
     }
 
@@ -212,10 +215,14 @@ public class SKDTree extends NearestNeighbourSearch {
     }
 
     private void findNearestNeighbours(Instance target, SNode node, int k,
-            MyHeap heap) throws Exception {
+            MyHeap heap, int depth) throws Exception {
 
         if (node == null) {
             return;
+        }
+
+        if (depth > this.maxDepthSearch) {
+            this.maxDepthSearch = depth;
         }
 
         SNode best, other;
@@ -227,7 +234,7 @@ public class SKDTree extends NearestNeighbourSearch {
             other = node.left;
         }
 
-        findNearestNeighbours(target, best, k, heap);
+        findNearestNeighbours(target, best, k, heap, depth + 1);
 
         if (node.isActive()) {
             double distNode;
@@ -258,7 +265,7 @@ public class SKDTree extends NearestNeighbourSearch {
 
         if (heap.size() < k || planeDist <= heap.peek().distance) {
             this.backtrack++;
-            findNearestNeighbours(target, other, k, heap);
+            findNearestNeighbours(target, other, k, heap, depth + 1);
         }
     }
 

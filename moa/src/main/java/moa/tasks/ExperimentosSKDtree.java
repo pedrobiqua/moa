@@ -3,6 +3,8 @@ package moa.tasks;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.FlagOption;
@@ -12,12 +14,12 @@ import com.yahoo.labs.samoa.instances.InstancesHeader;
 
 import moa.classifiers.lazy.neighboursearch.CircularQueue;
 import moa.classifiers.lazy.neighboursearch.EuclideanDistance;
-import moa.classifiers.lazy.neighboursearch.KDTree;
 import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
 import moa.classifiers.lazy.neighboursearch.SKDTree;
 import moa.classifiers.lazy.neighboursearch.SNode;
 import moa.core.Example;
 import moa.core.ObjectRepository;
+import moa.core.TimingUtils;
 import moa.options.AbstractOptionHandler;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
@@ -35,7 +37,8 @@ import moa.streams.generators.STAGGERGenerator;
 import moa.streams.generators.WaveformGenerator;
 import moa.streams.generators.WaveformGeneratorDrift;
 
-// TODO: AJUSTAR OS PARAMETROS E CONTINUAR OS TESTES COM AS FUNÇÕES
+// TODO: CONTINUAR OS TESTES e MONTAR SCRIPT DESSA NOVA BATERIA DE TESTE
+// VOU REPLICAR PARA FAZER O EXPERIMENTO DE APENAS INSERIR E BUSCAR
 
 public class ExperimentosSKDtree extends MainTask {
     public ClassOption streamOption = new ClassOption("stream", 's',
@@ -71,8 +74,20 @@ public class ExperimentosSKDtree extends MainTask {
             'v',
             "Flag para inidicar se deve rodar no modo de validação");
 
-    public PrintStream configOutputMetrics() {
+    public PrintStream configOutputMetrics(boolean isSinteticData, String nameStream) {
+
         File outputTempFile = this.outputFileOption.getFile();
+        if (isSinteticData) { // Se for dado sintetico cria csv de resultados
+            String[] splitName = nameStream.split("\\.");
+            nameStream = splitName[splitName.length - 1];
+
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss");
+            String timeStamp = now.format(formatter);
+
+            File streamSinteticFile = new File(outputTempFile.getParent(), nameStream + "_" + timeStamp + ".csv");
+            outputTempFile = streamSinteticFile;
+        }
         PrintStream outputStream = null;
         if (outputTempFile != null) {
             try {
@@ -224,7 +239,7 @@ public class ExperimentosSKDtree extends MainTask {
 
     public void runExperiment(ExampleStream<?> stream, int windowSize, boolean sinteticData) {
 
-        PrintStream output = configOutputMetrics();
+        PrintStream output = configOutputMetrics(sinteticData, stream.getClass().getName());
 
         long maxInstancias;
         if (sinteticData)
@@ -235,35 +250,58 @@ public class ExperimentosSKDtree extends MainTask {
 
         InstancesHeader streamHeader = stream.getHeader();
         SKDTree kdtree = new SKDTree(stream.getHeader().numAttributes() - 1, stream.getHeader());
-        CircularQueue queue = new CircularQueue(3, streamHeader);
+        CircularQueue queue = new CircularQueue(windowSize, streamHeader);
 
-        output.println("numInstancias");
+        output.println(
+                "numero_instancias,tempo_insert,tempo_busca,tempo_remove,altura_arvore_pos_insercao,profundidade_insercao,profundidade_busca,backtracking");
 
         while (stream.hasMoreInstances() && numInstancias < maxInstancias) {
             try {
+                long start_search, end_search, start_insert, end_insert, start_remove, end_remove;
+                double temp_insert = 0.0, temp_search = 0.0, temp_remove = 0.0;
+
                 Example<?> ex = stream.nextInstance();
                 Instance inst = (Instance) ex.getData();
 
-                Instance instanciaBusca1NN = null;
-
                 if (!queue.isEmpty()) {
-                    instanciaBusca1NN = kdtree.nearestNeighbour(inst);
+                    // COLETAR O TEMPO
+                    start_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    kdtree.nearestNeighbour(inst); // BUSCA
+                    end_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    temp_search = TimingUtils.nanoTimeToSeconds(end_search - start_search);
                 }
 
                 if (queue.isFull()) {
                     Instance instanciaRemovida = queue.remove();
-                    System.out.println("Instancia removida: " + instanciaRemovida);
-                    kdtree.remove(instanciaRemovida);
+                    // COLETAR O TEMPO
+                    start_remove = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    kdtree.remove(instanciaRemovida); // REMOVE
+                    end_remove = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    temp_remove = TimingUtils.nanoTimeToSeconds(end_remove - start_remove);
                 }
+
                 queue.insert(inst);
-                kdtree.update(inst);
+                // COLETAR O TEMPO
+                start_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                kdtree.update(inst); // INSERE
+                end_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                temp_insert = TimingUtils.nanoTimeToSeconds(end_insert - start_insert);
 
                 numInstancias++;
-                // Armazena o resultado
-                output.println(numInstancias);
+                // Armazena o resultado no arquivo de output
+                output.println(
+                        numInstancias + ","
+                                + temp_insert + ","
+                                + temp_search + ","
+                                + temp_remove + ","
+                                + kdtree.heightTree + ","
+                                + kdtree.depthInsert + ","
+                                + kdtree.maxDepthSearch + ","
+                                + kdtree.backtrack);
 
             } catch (Exception e) {
                 e.printStackTrace();
+                return;
             }
         }
     }
@@ -285,19 +323,19 @@ public class ExperimentosSKDtree extends MainTask {
         if (isSinteticData) { // STREAMS DATASETS SINTETICOS EXPERIMENTO
             InstanceStream[] streams_teste = {
                     new AssetNegotiationGenerator(),
-                    // new SEAGenerator(),
-                    // new RandomRBFGenerator(),
-                    // new AgrawalGenerator(),
-                    // new HyperplaneGenerator(),
-                    // new STAGGERGenerator(),
-                    // new RandomTreeGenerator(),
-                    // new WaveformGenerator(),
-                    // new LEDGenerator(),
-                    // // Tem drift no nome, verificar se já é uma stream com drift, eu não tenho
-                    // // certeza
-                    // new WaveformGeneratorDrift(),
-                    // new RandomRBFGeneratorDrift(),
-                    // new LEDGeneratorDrift(),
+                    new SEAGenerator(),
+                    new RandomRBFGenerator(),
+                    new AgrawalGenerator(),
+                    new HyperplaneGenerator(),
+                    new STAGGERGenerator(),
+                    new RandomTreeGenerator(),
+                    new WaveformGenerator(),
+                    new LEDGenerator(),
+                    // Tem drift no nome, verificar se já é uma stream com drift, eu não tenho
+                    // certeza
+                    new WaveformGeneratorDrift(),
+                    new RandomRBFGeneratorDrift(),
+                    new LEDGeneratorDrift(),
 
             };
             for (int i = 0; i < streams_teste.length; i++) {
