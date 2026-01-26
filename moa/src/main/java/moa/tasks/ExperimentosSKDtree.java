@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.FlagOption;
 import com.github.javacliparser.IntOption;
+import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.InstancesHeader;
 
@@ -38,7 +39,8 @@ import moa.streams.generators.WaveformGenerator;
 import moa.streams.generators.WaveformGeneratorDrift;
 
 // TODO: CONTINUAR OS TESTES e MONTAR SCRIPT DESSA NOVA BATERIA DE TESTE
-// VOU REPLICAR PARA FAZER O EXPERIMENTO DE APENAS INSERIR E BUSCAR
+// Scripts sinteticos montados, falta apenas os scripts de datasets reais
+// Vou deixar para amanhã a validação
 
 public class ExperimentosSKDtree extends MainTask {
     public ClassOption streamOption = new ClassOption("stream", 's',
@@ -73,6 +75,14 @@ public class ExperimentosSKDtree extends MainTask {
             "isValidation",
             'v',
             "Flag para inidicar se deve rodar no modo de validação");
+
+    // Mudar o nome das funções dos experimentos
+    public MultiChoiceOption numExperimentOption = new MultiChoiceOption(
+            "numExperiment", 'e', "Choice experiment", new String[] {
+                    "Experiment 1", "Experiment 2" },
+            new String[] { "Insert and Search SKDtree colect metrics. ",
+                    "Insert, Remove and Search SKDtree colect metrics. "
+            }, 0);
 
     public PrintStream configOutputMetrics(boolean isSinteticData, String nameStream) {
 
@@ -237,7 +247,7 @@ public class ExperimentosSKDtree extends MainTask {
         System.out.println("Instancias finais da janela: \n" + queue.toInstances());
     }
 
-    public void runExperiment(ExampleStream<?> stream, int windowSize, boolean sinteticData) {
+    public void runExperimentSlideWindow(ExampleStream<?> stream, int windowSize, boolean sinteticData) {
 
         PrintStream output = configOutputMetrics(sinteticData, stream.getClass().getName());
 
@@ -306,6 +316,61 @@ public class ExperimentosSKDtree extends MainTask {
         }
     }
 
+    public void runExperimentInsertSearch(ExampleStream<?> stream, boolean sinteticData) {
+        PrintStream output = configOutputMetrics(sinteticData, stream.getClass().getName());
+
+        long maxInstancias;
+        if (sinteticData)
+            maxInstancias = sizeSinteticDatasetOption.getValue();
+        else
+            maxInstancias = Long.MAX_VALUE;
+        int numInstancias = 0;
+
+        SKDTree kdtree = new SKDTree(stream.getHeader().numAttributes() - 1, stream.getHeader());
+
+        output.println(
+                "numero_instancias,tempo_insert,tempo_busca,altura_arvore_pos_insercao,profundidade_insercao,profundidade_busca,backtracking");
+
+        while (stream.hasMoreInstances() && numInstancias < maxInstancias) {
+            try {
+                long start_search, end_search, start_insert, end_insert;
+                double temp_insert = 0.0, temp_search = 0.0;
+
+                Example<?> ex = stream.nextInstance();
+                Instance inst = (Instance) ex.getData();
+
+                if (numInstancias != 0) {
+                    // COLETAR O TEMPO
+                    start_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    kdtree.nearestNeighbour(inst); // BUSCA
+                    end_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    temp_search = TimingUtils.nanoTimeToSeconds(end_search - start_search);
+                }
+
+                // COLETAR O TEMPO
+                start_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                kdtree.update(inst); // INSERE
+                end_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                temp_insert = TimingUtils.nanoTimeToSeconds(end_insert - start_insert);
+
+                numInstancias++;
+                // Armazena o resultado no arquivo de output
+                output.println(
+                        numInstancias + ","
+                                + temp_insert + ","
+                                + temp_search + ","
+                                + kdtree.heightTree + ","
+                                + kdtree.depthInsert + ","
+                                + kdtree.maxDepthSearch + ","
+                                + kdtree.backtrack);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+    }
+
     @Override
     public Class<?> getTaskResultType() {
         throw new UnsupportedOperationException("Unimplemented method 'getTaskResultType'");
@@ -314,7 +379,10 @@ public class ExperimentosSKDtree extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
-        monitor.setCurrentActivity("VAL: KDTREE WINDOW", -1.0);
+        if (numExperimentOption.getChosenIndex() == 0)
+            monitor.setCurrentActivity("SKDtree Experiment Insert and Search", -1.0);
+        else
+            monitor.setCurrentActivity("SKDtree Experiment Sliding window", -1.0);
 
         boolean isSinteticData = isSitenticDataOption.isSet();
         boolean isValidation = isValidationOption.isSet();
@@ -342,19 +410,32 @@ public class ExperimentosSKDtree extends MainTask {
                 if (streams_teste[i] instanceof AbstractOptionHandler)
                     ((AbstractOptionHandler) streams_teste[i]).prepareForUse();
                 else {
-                    throw new UnsupportedOperationException("Unimplemented method 'getDistances'");
+                    throw new UnsupportedOperationException("Unimplemented method 'prepareForUse'");
                 }
 
-                if (isValidation)
+                if (isValidation) {
                     runValidation(streams_teste[i], isSinteticData);
-                else
-                    runExperiment(streams_teste[i], windowSize, isSinteticData);
+                } else {
+                    String[] streamAllName = streams_teste[i].getClass().getName().split("\\.");
+                    String streamName = streamAllName[streamAllName.length - 1];
+                    if (numExperimentOption.getChosenIndex() == 0)
+                        runExperimentInsertSearch(streams_teste[i], isSinteticData); // Experimento 1
+                    else
+                        runExperimentSlideWindow(streams_teste[i], windowSize, isSinteticData); // Experimento 2
+                    System.out.println("Resultado: ~/Output/" + streamName + ".csv");
+                }
             }
         } else { // STREAMS DATASETS REAIS
-            if (isValidation)
+            if (isValidation) {
+                monitor.setCurrentActivity("KDTREE WINDOW: Run Validation", -1.0);
                 runValidation(stream, isSinteticData);
-            else
-                runExperiment(stream, windowSize, isSinteticData);
+            } else {
+                monitor.setCurrentActivity("KDTREE WINDOW: Run Experiment", -1.0);
+                if (numExperimentOption.getChosenIndex() == 0)
+                    runExperimentInsertSearch(stream, isSinteticData); // Experimento 1
+                else
+                    runExperimentSlideWindow(stream, windowSize, isSinteticData); // Experimento 2
+            }
         }
         return null;
     }
