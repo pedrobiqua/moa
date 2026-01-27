@@ -422,15 +422,13 @@ public class ExperimentosSKDtree extends MainTask {
                         runExperimentInsertSearch(streams_teste[i], isSinteticData); // Experimento 1
                     else
                         runExperimentSlideWindow(streams_teste[i], windowSize, isSinteticData); // Experimento 2
-                    System.out.println("Resultado: ~/Output/" + streamName + ".csv");
+                    System.out.println("Resultado: ~/Output/" + streamName + ".csv\n");
                 }
             }
         } else { // STREAMS DATASETS REAIS
             if (isValidation) {
-                monitor.setCurrentActivity("KDTREE WINDOW: Run Validation", -1.0);
                 runValidation(stream, isSinteticData);
             } else {
-                monitor.setCurrentActivity("KDTREE WINDOW: Run Experiment", -1.0);
                 if (numExperimentOption.getChosenIndex() == 0)
                     runExperimentInsertSearch(stream, isSinteticData); // Experimento 1
                 else
