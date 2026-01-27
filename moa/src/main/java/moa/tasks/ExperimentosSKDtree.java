@@ -28,15 +28,15 @@ import moa.streams.InstanceStream;
 import moa.streams.generators.AgrawalGenerator;
 import moa.streams.generators.AssetNegotiationGenerator;
 import moa.streams.generators.HyperplaneGenerator;
-import moa.streams.generators.LEDGenerator;
-import moa.streams.generators.LEDGeneratorDrift;
+// import moa.streams.generators.LEDGenerator;
+// import moa.streams.generators.LEDGeneratorDrift;
 import moa.streams.generators.RandomRBFGenerator;
-import moa.streams.generators.RandomRBFGeneratorDrift;
-import moa.streams.generators.RandomTreeGenerator;
+// import moa.streams.generators.RandomRBFGeneratorDrift;
+// import moa.streams.generators.RandomTreeGenerator;
 import moa.streams.generators.SEAGenerator;
 import moa.streams.generators.STAGGERGenerator;
-import moa.streams.generators.WaveformGenerator;
-import moa.streams.generators.WaveformGeneratorDrift;
+// import moa.streams.generators.WaveformGenerator;
+// import moa.streams.generators.WaveformGeneratorDrift;
 
 // TODO: CONTINUAR OS TESTES e MONTAR SCRIPT DESSA NOVA BATERIA DE TESTE
 // Scripts sinteticos montados, falta apenas os scripts de datasets reais
@@ -396,14 +396,14 @@ public class ExperimentosSKDtree extends MainTask {
                     new AgrawalGenerator(),
                     new HyperplaneGenerator(),
                     new STAGGERGenerator(),
-                    new RandomTreeGenerator(),
-                    new WaveformGenerator(),
-                    new LEDGenerator(),
-                    // Tem drift no nome, verificar se já é uma stream com drift, eu não tenho
-                    // certeza
-                    new WaveformGeneratorDrift(),
-                    new RandomRBFGeneratorDrift(),
-                    new LEDGeneratorDrift(),
+                    // new RandomTreeGenerator(),
+                    // new WaveformGenerator(),
+                    // new LEDGenerator(),
+                    // // Tem drift no nome, verificar se já é uma stream com drift, eu não tenho
+                    // // certeza
+                    // new WaveformGeneratorDrift(),
+                    // new RandomRBFGeneratorDrift(),
+                    // new LEDGeneratorDrift(),
 
             };
             for (int i = 0; i < streams_teste.length; i++) {
