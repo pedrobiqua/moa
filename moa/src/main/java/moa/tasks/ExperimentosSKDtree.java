@@ -25,16 +25,16 @@ import moa.options.AbstractOptionHandler;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
 import moa.streams.InstanceStream;
-// import moa.streams.generators.AgrawalGenerator;
-// import moa.streams.generators.AssetNegotiationGenerator;
-// import moa.streams.generators.HyperplaneGenerator;
+import moa.streams.generators.AgrawalGenerator;
+import moa.streams.generators.AssetNegotiationGenerator;
+import moa.streams.generators.HyperplaneGenerator;
 import moa.streams.generators.LEDGenerator;
 import moa.streams.generators.LEDGeneratorDrift;
-// import moa.streams.generators.RandomRBFGenerator;
+import moa.streams.generators.RandomRBFGenerator;
 import moa.streams.generators.RandomRBFGeneratorDrift;
 import moa.streams.generators.RandomTreeGenerator;
-// import moa.streams.generators.SEAGenerator;
-// import moa.streams.generators.STAGGERGenerator;
+import moa.streams.generators.SEAGenerator;
+import moa.streams.generators.STAGGERGenerator;
 import moa.streams.generators.WaveformGenerator;
 import moa.streams.generators.WaveformGeneratorDrift;
 
@@ -386,12 +386,12 @@ public class ExperimentosSKDtree extends MainTask {
 
         if (isSinteticData) { // STREAMS DATASETS SINTETICOS EXPERIMENTO
             InstanceStream[] streams_teste = {
-                    // new AssetNegotiationGenerator(),
-                    // new SEAGenerator(),
-                    // new RandomRBFGenerator(),
-                    // new AgrawalGenerator(),
-                    // new HyperplaneGenerator(),
-                    // new STAGGERGenerator(),
+                    new AssetNegotiationGenerator(),
+                    new SEAGenerator(),
+                    new RandomRBFGenerator(),
+                    new AgrawalGenerator(),
+                    new HyperplaneGenerator(),
+                    new STAGGERGenerator(),
                     new RandomTreeGenerator(),
                     new WaveformGenerator(),
                     new LEDGenerator(),
