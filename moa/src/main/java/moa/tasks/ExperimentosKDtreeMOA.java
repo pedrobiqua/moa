@@ -17,6 +17,7 @@ import moa.options.AbstractOptionHandler;
 import moa.options.ClassOption;
 import moa.streams.ExampleStream;
 import moa.streams.generators.AgrawalGenerator;
+import moa.streams.generators.STAGGERGenerator;
 
 public class ExperimentosKDtreeMOA extends MainTask {
     public ClassOption streamOption = new ClassOption("stream", 's',
@@ -60,7 +61,7 @@ public class ExperimentosKDtreeMOA extends MainTask {
 
         // ExampleStream<?> stream = (ExampleStream<?>)
         // getPreparedClassOption(this.streamOption);
-        ExampleStream<?> stream = new AgrawalGenerator();
+        ExampleStream<?> stream = new STAGGERGenerator();
         if (stream instanceof AbstractOptionHandler)
             ((AbstractOptionHandler) stream).prepareForUse();
         else {
@@ -81,7 +82,7 @@ public class ExperimentosKDtreeMOA extends MainTask {
                 SKDTree search = null;
                 search = new SKDTree((stream.getHeader().numAttributes() - 1), stream.getHeader());
                 int numInstancias = 0;
-                int maxInstancias = 500000;
+                int maxInstancias = 200000;
 
                 while (stream.hasMoreInstances() && numInstancias < maxInstancias) {
 
@@ -113,7 +114,7 @@ public class ExperimentosKDtreeMOA extends MainTask {
             search = new SKDTree((stream.getHeader().numAttributes() - 1), stream.getHeader());
             stream.restart();
             int numInstancias = 0;
-            int maxInstancias = 500000;
+            int maxInstancias = 200000;
 
             while (stream.hasMoreInstances() && numInstancias < maxInstancias) {
 
