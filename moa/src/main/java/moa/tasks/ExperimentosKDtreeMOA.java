@@ -75,11 +75,43 @@ public class ExperimentosKDtreeMOA extends MainTask {
             long start_search, end_search, start_insert, end_insert;
             double temp_insert = 0.0, temp_search = 0.0;
 
-            // Instances window = new Instances(stream.getHeader(), 0);
+            // Aquecimento
+            System.out.println("Aquecendo \n");
+            for (int i = 0; i < 3; i++) {
+                SKDTree search = null;
+                search = new SKDTree((stream.getHeader().numAttributes() - 1), stream.getHeader());
+                int numInstancias = 0;
+                int maxInstancias = 500000;
+
+                while (stream.hasMoreInstances() && numInstancias < maxInstancias) {
+
+                    Example<?> ex = stream.nextInstance();
+                    Instance inst = (Instance) ex.getData();
+
+                    // Busca
+                    if (numInstancias != 0) {
+                        start_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                        search.nearestNeighbour(inst);
+                        end_search = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                        temp_search = TimingUtils.nanoTimeToSeconds(end_search - start_search);
+                    }
+
+                    start_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+                    search.update(inst);
+                    end_insert = TimingUtils.getNanoCPUTimeOfCurrentThread();
+
+                    temp_insert = TimingUtils.nanoTimeToSeconds(end_insert - start_insert);
+                    numInstancias++;
+                    if (numInstancias % 10000 == 0) {
+                        System.out.println(numInstancias);
+                    }
+                }
+            }
+
+            System.out.println("Realizando o Experimento \n");
             SKDTree search = null;
             search = new SKDTree((stream.getHeader().numAttributes() - 1), stream.getHeader());
-            // search.setNormalizeNodeWidth(false);
-            // search.setInstances(window);
+            stream.restart();
             int numInstancias = 0;
             int maxInstancias = 500000;
 
@@ -114,8 +146,6 @@ public class ExperimentosKDtreeMOA extends MainTask {
                     System.out.println(numInstancias);
                 }
             }
-
-            System.out.println("teste");
 
         } catch (Exception e) {
             e.printStackTrace();
