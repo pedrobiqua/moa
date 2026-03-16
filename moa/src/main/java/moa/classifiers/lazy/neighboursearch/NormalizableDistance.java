@@ -393,7 +393,7 @@ public abstract class NormalizableDistance
    * @param val2	the second value
    * @return		the difference
    */
-  protected double difference(int index, double val1, double val2) {
+  public double difference(int index, double val1, double val2) {
     //switch (m_Data.attribute(index).type()) {
       //case Attribute.NOMINAL:
       if (m_Data.attribute(index).isNominal() == true){

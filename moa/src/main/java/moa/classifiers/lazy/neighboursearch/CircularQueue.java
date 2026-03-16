@@ -13,7 +13,7 @@ public class CircularQueue {
     Instance[] window;
     InstancesHeader streamHeader;
 
-    public CircularQueue(int size, InstancesHeader streamHeader) {
+    public CircularQueue(InstancesHeader streamHeader, int size) {
         // Inicialização da fila circular
         this.size = size;
         window = new Instance[this.size];

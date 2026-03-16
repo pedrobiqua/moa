@@ -124,7 +124,7 @@ public class ExperimentosSKDtree extends MainTask {
 
         InstancesHeader streamHeader = stream.getHeader();
         SKDTree kdtree = new SKDTree(stream.getHeader().numAttributes() - 1, stream.getHeader());
-        CircularQueue queue = new CircularQueue(3, streamHeader);
+        CircularQueue queue = new CircularQueue(streamHeader, 3);
 
         EuclideanDistance distanceFunction = new EuclideanDistance();
         distanceFunction.setDontNormalize(true);
@@ -226,7 +226,7 @@ public class ExperimentosSKDtree extends MainTask {
 
         InstancesHeader streamHeader = stream.getHeader();
         SKDTree kdtree = new SKDTree(stream.getHeader().numAttributes() - 1, stream.getHeader());
-        CircularQueue queue = new CircularQueue(windowSize, streamHeader);
+        CircularQueue queue = new CircularQueue(streamHeader, windowSize);
 
         output.println(
                 "numero_instancias,tempo_insert,tempo_busca,tempo_remove,altura_arvore_pos_insercao,profundidade_insercao,profundidade_busca,backtracking");

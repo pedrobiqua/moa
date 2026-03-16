@@ -105,6 +105,21 @@ public interface DistanceFunction  {
    */
   public double distance(Instance first, Instance second, double cutOffValue);
 
+  public double difference(int index, double val1, double val2);
+
+  public double sqDifference(int index, double val1, double val2);
+
+  public double[][] getRanges() throws Exception;
+
+  public void updateRanges(Instance instance);
+
+  public double[][] updateRanges(Instance instance, double[][] ranges);
+
+  public double[][] initializeRanges();
+
+  public double[][] initializeRanges(int[] instList) throws Exception;
+
+  public double[][] initializeRanges(int[] instList, int startIdx, int endIdx) throws Exception;
 
   /**
    * Does post processing of the distances (if necessary) returned by
