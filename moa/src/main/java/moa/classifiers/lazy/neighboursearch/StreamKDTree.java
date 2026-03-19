@@ -46,17 +46,11 @@ import java.util.TreeSet;
  */
 public class StreamKDTree extends NearestNeighbourSearch {
 
-    // TODO:  - Arrumar a busca para não usar os nós deletados - Arrumar os splits com defeito para testar - Adicionar critérios de rebuild
-    //         - Já adicionado, falta validar                   - Preciso ver isso com mais calma
-    //
-    // Anotações:
-    // Já está sendo realizado as lazy deletion das instancias nos nós folha. Falta validar isso com um exemplo controlado!
-    // Testar o build junto com o modo stream dessa classe, para avaliar as diferenças das métricas
-    // Testes: Árvore ingenua, Arvore bucket (SlidingMidPoint)/(Median)/(MidPoint)
-    //         Testar a Janela / Testar a inserção e parametros
-    // Criar as politicas de rebuilding
-    // O Split MedianOfWidestDimension() está inconsistente, na função de search isso fica claro, talvez é por isso que
-    // não usam kkkkk
+    // TODO: - Arrumar os splits com defeito para testar
+    //       - Verificar se as métricas estão corretas
+    //       - Executar os experimentos
+    // NOTES:
+    //      - Já está ficando legal, ainda falta as ultimas validações.
 
     /** For serialization. */
     private static final long serialVersionUID = 1505717283763272533L;
@@ -66,6 +60,9 @@ public class StreamKDTree extends NearestNeighbourSearch {
     {
         rebuildPolicies = new ArrayList<>();
     }
+
+    private int m_WindowSize = 1000;
+    private Window m_Window;
 
     /**
      * Array holding the distances of the nearest neighbours. It is filled up both
@@ -90,7 +87,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
     protected KDTreeNodeSplitter m_Splitter = new SlidingMidPointOfWidestSide();
 
     /** The max instances in leaf */
-    protected int m_MaxInstInLeaf = 40;
+    public static int m_MaxInstInLeaf = 40;
 
     protected double m_MinBoxRelWidth = 1.0E-2;
 
@@ -196,25 +193,23 @@ public class StreamKDTree extends NearestNeighbourSearch {
     @Override
     public void update(Instance ins) throws Exception {
         checkMissing(ins);
+        // Verifica se a janela deslizante precisa remover ou não
+        if (m_Window == null)
+            m_Window = new Window(this.m_WindowSize);
+        int idx_remove = m_Window.update(); // Faz o calculo
+        if (idx_remove != -1)
+            delete(idx_remove);
+
         addInstanceToTree(ins);
 
-        // TODO: VER OUTRAS FORMAS MAIS FACEIS DE RECRIAÇÃO
         // Verify rebuild
         if (rebuildPolicies.isEmpty())
             throw new Exception("Not add rebuild policy");
         for (RebuildPolicy policy : rebuildPolicies){
             if (policy.checkRebuild(m_Stats)){
-                // rebuildKDTree();
-                System.out.println("Recriando a árvore");
-
-                for (int idx = 0; idx < m_Instances.numInstances(); idx++){
-                    if (m_InstDeleted.isEmpty())
-                        break;
-                    if (!m_InstDeleted.remove(idx)){
-                        // Se não for removido, adicionar no vetor de cópia
-                        System.out.println("Add: " + idx);
-                    }
-                }
+                // Montar a recriação da árvore
+                this.m_Instances = m_Window.getInstancesWindow();
+                rebuildKDTree(this.m_Instances);
             }
         }
     }
@@ -229,14 +224,19 @@ public class StreamKDTree extends NearestNeighbourSearch {
      */
     public void setInstances(Instances instances) throws Exception {
         super.setInstances(instances);
+        // m_Window.setInstances(instances);
         buildKDTree(instances);
     }
 
     public void setMaxInstInLeaf(int m_MaxInstInLeaf) {
-        this.m_MaxInstInLeaf = m_MaxInstInLeaf;
+        StreamKDTree.m_MaxInstInLeaf = m_MaxInstInLeaf;
     }
 
-    public void setSplitter(KDTreeNodeSplitter splitter) {this.m_Splitter = splitter; }
+    public void setNodeSplitter(KDTreeNodeSplitter splitter) {this.m_Splitter = splitter; }
+
+    public void setWindowSize(int window_size) {
+        this.m_WindowSize = window_size;
+    }
 
     @Override
     public Instances getInstances() {
@@ -267,6 +267,11 @@ public class StreamKDTree extends NearestNeighbourSearch {
 
         double[][] universe = m_DistanceFunction.getRanges();
 
+        // initializing internal fields of Window
+        if (m_Window == null)
+            m_Window = new Window(this.m_WindowSize);
+        m_Window.setInstances(this.m_Instances);
+
         // initializing internal fields of KDTreeSplitter
         m_Splitter.setInstances(m_Instances);
         m_Splitter.setInstanceList(m_InstList);
@@ -280,6 +285,8 @@ public class StreamKDTree extends NearestNeighbourSearch {
         // building tree
         m_Stats.m_NumNodes = m_Stats.m_NumLeaves = 1;
         m_Stats.m_MaxDepth = 0;
+        m_Stats.m_NumUpdates = 0;
+        m_Stats.m_NumInstancias = m_Instances.numInstances();
         m_Root = new KDTreeNode(m_Stats.m_NumNodes, 0, m_Instances.numInstances() - 1,
                 universe);
 
@@ -292,8 +299,11 @@ public class StreamKDTree extends NearestNeighbourSearch {
      * @throws Exception If there is some problem
      *                   on rebuilding.
      */
-    void rebuildKDTree() throws Exception {
-        buildKDTree(m_Instances);
+    private void rebuildKDTree(Instances insts) throws Exception {
+        System.out.println("Rebuilding ...");
+        m_InstDeleted.clear();
+        m_Stats = new KDTreeStats();
+        buildKDTree(insts);
     }
 
     /**
@@ -520,6 +530,11 @@ public class StreamKDTree extends NearestNeighbourSearch {
             m_Instances.add(inst);// Inicializa e adiciona a instancia no conj de instancias
             m_Stats.m_NumInstancias = m_Instances.size();
 
+            // initializing internal fields of window
+            if (m_Window == null)
+                m_Window = new Window(this.m_WindowSize);
+            m_Window.setInstances(this.m_Instances);
+
             m_InstList = new int[m_Instances.size()]; // Cria os indices
 
             m_DistanceFunction.setInstances(m_Instances);
@@ -550,6 +565,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         addInstanceInfo(inst);
         addInstance(inst, m_Root, 0);
         m_Stats.m_NumInstancias = m_Instances.numInstances();
+        m_Stats.m_NumUpdates++;
     }
 
     private void addInstance(Instance inst, KDTreeNode node, int depth) throws Exception {
@@ -611,17 +627,14 @@ public class StreamKDTree extends NearestNeighbourSearch {
         }
     }
 
-    public void delete(Instance inst) throws Exception {
+    private void delete(int idx) throws Exception {
         // Buscar o Nó, idx dele
-        int idx = search(m_Root, inst);
+        // Não precisa mais buscar, a janela já faz esse papel
+        // int idx = search(m_Root, inst);
         // Adicionar na lista de apagados
-        if (idx != -1) {
-            m_InstDeleted.add(idx);
-            // Atualizar o m_NumInstancesDeleted
-            m_Stats.m_NumInstancesDeleted = m_InstDeleted.size();
-        } else {
-            throw new Exception("Not found instance: " + inst);
-        }
+        m_InstDeleted.add(idx);
+        // Atualizar o m_NumInstancesDeleted
+        m_Stats.m_NumInstancesDeleted = m_InstDeleted.size();
     }
 
     private boolean instanceIsEqual(Instance instance1, Instance instance2) {
@@ -636,8 +649,12 @@ public class StreamKDTree extends NearestNeighbourSearch {
         return true;
     }
 
+    public int exactSearch(Instance inst) {
+        return search(m_Root, inst);
+    }
+
     private int search(KDTreeNode node, Instance inst) {
-        int idx_Deleted = -1;
+        int idx_found = -1;
         if (node.isALeaf()){
             for (int idx = node.m_Start; idx <= node.m_End; ++idx) {
                 // Se for igual e não foi deletado
@@ -647,12 +664,12 @@ public class StreamKDTree extends NearestNeighbourSearch {
         } else {
             boolean targetInLeft = inst.value(node.m_SplitDim) <= node.m_SplitValue;
             if (targetInLeft)
-                idx_Deleted = search(node.m_Left, inst);
+                idx_found = search(node.m_Left, inst);
             else
-                idx_Deleted = search(node.m_Right, inst);
+                idx_found = search(node.m_Right, inst);
         }
 
-        return idx_Deleted;
+        return idx_found;
     }
 
     /**
