@@ -1,6 +1,6 @@
 package moa.classifiers.lazy.neighboursearch.kdtrees;
 
-public class DeletedRatioPolicy implements RebuildPolicy{
+public class DeletedRatioPolicy implements RebuildPolicy {
     @Override
     public boolean checkRebuild(KDTreeStats stats) throws Exception {
         if (stats.m_NumInstancias == 0)
