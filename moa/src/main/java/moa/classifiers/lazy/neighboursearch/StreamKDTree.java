@@ -46,11 +46,10 @@ import java.util.TreeSet;
  */
 public class StreamKDTree extends NearestNeighbourSearch {
 
-    // TODO: - Arrumar os splits com defeito para testar
-    //       - Verificar se as métricas estão corretas
-    //       - Executar os experimentos
+    // TODO: - Arrumar os splits com defeito para testar //  Aparentemente está ok! Porém preciso validar se está certo os splits
+    //       - Falta adicionar profundidade na busca e Verificar se as métricas estão corretas
+    //       - Arrumar os experimentos para executar
     // NOTES:
-    //      - Já está ficando legal, ainda falta as ultimas validações.
 
     /** For serialization. */
     private static final long serialVersionUID = 1505717283763272533L;
@@ -140,8 +139,13 @@ public class StreamKDTree extends NearestNeighbourSearch {
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
         checkMissing(target);
 
+        ///  COLETA DE MÉTRICAS
+        m_Stats.m_BacktrackCount = 0;
+        m_Stats.m_VisitedNodes = 0;
+        m_Stats.m_VisitedInstances = 0;
+        ///
         MyHeap heap = new MyHeap(k);
-        findNearestNeighbours(target, m_Root, k, heap, 0.0);
+        findNearestNeighbours(target, m_Root, k, heap, 0.0, 0);
 
         Instances neighbours = new Instances(m_Instances, (heap.size() + heap
                 .noOfKthNearest()));
@@ -200,7 +204,12 @@ public class StreamKDTree extends NearestNeighbourSearch {
         if (idx_remove != -1)
             delete(idx_remove);
 
+        /// COLETA DE MÉTRICAS
+        m_Stats.m_InsertDepth = 0;
+        ///
+
         addInstanceToTree(ins);
+        m_Stats.m_Rebuild = false;
 
         // Verify rebuild
         if (rebuildPolicies.isEmpty())
@@ -210,6 +219,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
                 // Montar a recriação da árvore
                 this.m_Instances = m_Window.getInstancesWindow();
                 rebuildKDTree(this.m_Instances);
+                m_Stats.m_Rebuild = true;
             }
         }
     }
@@ -287,6 +297,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         m_Stats.m_MaxDepth = 0;
         m_Stats.m_NumUpdates = 0;
         m_Stats.m_NumInstancias = m_Instances.numInstances();
+        m_Stats.m_InitialNumInstances = m_Stats.m_NumInstancias;
         m_Root = new KDTreeNode(m_Stats.m_NumNodes, 0, m_Instances.numInstances() - 1,
                 universe);
 
@@ -294,7 +305,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
     }
 
     /**
-     * Essa função rebuilda a árvore, porem preciso ver se não preciso reiniciar alguma métrica da árvore.
+     *
      *
      * @throws Exception If there is some problem
      *                   on rebuilding.
@@ -302,7 +313,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
     private void rebuildKDTree(Instances insts) throws Exception {
         System.out.println("Rebuilding ...");
         m_InstDeleted.clear();
-        m_Stats = new KDTreeStats();
+        m_Stats.resetTreeStats();
         buildKDTree(insts);
     }
 
@@ -463,11 +474,17 @@ public class StreamKDTree extends NearestNeighbourSearch {
      * @throws Exception if the nearest neighbour could not be found.
      */
     protected void findNearestNeighbours(Instance target, KDTreeNode node, int k,
-            MyHeap heap, double distanceToParents) throws Exception {
+            MyHeap heap, double distanceToParents, int depth) throws Exception {
+        m_Stats.m_VisitedNodes++; // COLETA DE MÉTRICA [NÃO FAZ PARTE DA LÓGICA]
+
+        if (depth > m_Stats.m_SearchDepth)
+            m_Stats.m_SearchDepth = depth;
+
         if (node.isALeaf()) {
             double distance;
             // look at all the instances in this leaf
             for (int idx = node.m_Start; idx <= node.m_End; idx++) {
+                m_Stats.m_VisitedInstances++; // COLETA DE MÉTRICA [NÃO FAZ PARTE DA LÓGICA]
                 // Ignore deleted points
                 if (m_InstDeleted.contains(m_InstList[idx]))
                     continue;
@@ -503,21 +520,23 @@ public class StreamKDTree extends NearestNeighbourSearch {
                 nearer = node.m_Right;
                 further = node.m_Left;
             }
-            findNearestNeighbours(target, nearer, k, heap, distanceToParents);
+            findNearestNeighbours(target, nearer, k, heap, distanceToParents, depth + 1);
 
             // ... now look in further half if maxDist reaches into it
             if (heap.size() < k) { // if I haven't found the first k
+                m_Stats.m_BacktrackCount++;
                 double distanceToSplitPlane = distanceToParents
                         + m_DistanceFunction.sqDifference(node.m_SplitDim, target
                                 .value(node.m_SplitDim), node.m_SplitValue);
-                findNearestNeighbours(target, further, k, heap, distanceToSplitPlane);
+                findNearestNeighbours(target, further, k, heap, distanceToSplitPlane, depth + 1);
             } else { // else see if ball centered at query intersects with the other
                 // side.
+                m_Stats.m_BacktrackCount++;
                 double distanceToSplitPlane = distanceToParents
                         + m_DistanceFunction.sqDifference(node.m_SplitDim, target
                                 .value(node.m_SplitDim), node.m_SplitValue);
                 if (heap.peek().distance >= distanceToSplitPlane) {
-                    findNearestNeighbours(target, further, k, heap, distanceToSplitPlane);
+                    findNearestNeighbours(target, further, k, heap, distanceToSplitPlane, depth + 1);
                 }
             } // end else
         } // end else_if an internal node
@@ -573,6 +592,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
             m_Stats.m_MaxDepth = depth;
 
         if (node.isALeaf()) {
+            m_Stats.m_InsertDepth = depth;
             int[] instList = new int[m_Instances.numInstances()];
             try {
                 System.arraycopy(m_InstList, 0, instList, 0, node.m_End + 1);
@@ -607,6 +627,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
                 if (depth + 1 > m_Stats.m_MaxDepth) {
                     m_Stats.m_MaxDepth++; // Acrescenta 1 na altura da árvore.
                 }
+                m_Stats.m_InsertDepth++; // Acrescenta 1, pois foi realizado o split
             }
         } else {
                 // Esquerda
@@ -627,7 +648,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         }
     }
 
-    private void delete(int idx) throws Exception {
+    private void delete(int idx) {
         // Buscar o Nó, idx dele
         // Não precisa mais buscar, a janela já faz esse papel
         // int idx = search(m_Root, inst);
@@ -728,7 +749,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         }
 
         System.out.println("node" + node.m_NodeNumber +
-                " [label=\"" + label.toString() + "\"];");
+                " [label=\"" + label + "\"];");
 
         if (node.m_Left != null) {
             System.out.println("node" + node.m_NodeNumber +

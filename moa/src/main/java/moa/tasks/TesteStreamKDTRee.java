@@ -35,6 +35,13 @@ public class TesteStreamKDTRee extends MainTask {
         return null;
     }
 
+    public void restartStream(ExampleStream<?> stream) {
+        if (stream.isRestartable()) {
+            System.out.println("Restart Stream");
+            stream.restart();
+        }
+    }
+
     public static boolean isSameAttributes(Instance a, Instance b) {
 
         // Verifica quantidade de atributos
@@ -61,8 +68,9 @@ public class TesteStreamKDTRee extends MainTask {
         return true;
     }
 
-    private void validateAgainstKDTree(ExampleStream<?> stream, KDTreeNodeSplitter splitter) {
+    private void validateAgainstKDTree(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
         try {
+            restartStream(stream);
             int count = 0;
             int maxInstances = 500000;
             int window_size = 1000;
@@ -74,9 +82,10 @@ public class TesteStreamKDTRee extends MainTask {
 
             // Configurações da skdtree
             StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(20);
+            skdtree.setMaxInstInLeaf(40);
             skdtree.setNodeSplitter(splitter);
-            skdtree.setRebuildPolicies(new DeletedRatioPolicy());
+            skdtree.setWindowSize(window_size);
+            skdtree.setRebuildPolicies(rebuildPolicy);
 
             // KDTree com janela deslizante montando a toda busca
             System.out.println("Executando KDtree ...");
@@ -137,15 +146,19 @@ public class TesteStreamKDTRee extends MainTask {
         }
     }
 
-    private void validateExactSearch(ExampleStream<?> stream, KDTreeNodeSplitter splitter) {
+    private void validateExactSearch(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
         try {
+            restartStream(stream);
+
             int count = 0;
             int maxInstances = 500000;
+            int window_size = 1000;
 
             StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(20);
+            skdtree.setMaxInstInLeaf(40);
             skdtree.setNodeSplitter(splitter);
-            skdtree.setRebuildPolicies(new DeletedRatioPolicy());
+            skdtree.setWindowSize(window_size);
+            skdtree.setRebuildPolicies(rebuildPolicy);
 
             System.out.println("Executando teste de insert + exactSearch...");
 
@@ -160,6 +173,7 @@ public class TesteStreamKDTRee extends MainTask {
                     return;
                 }
 
+                skdtree.m_Stats.printMetrics();
                 count++;
             }
 
@@ -172,6 +186,8 @@ public class TesteStreamKDTRee extends MainTask {
 
     private void validateMetrics(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
         try {
+            restartStream(stream);
+
             int count = 0;
             int maxInstances = 20;
 
@@ -203,6 +219,50 @@ public class TesteStreamKDTRee extends MainTask {
         }
     }
 
+    private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
+        try {
+            restartStream(stream);
+
+            int count = 0;
+            int maxInstances = 100000;
+
+            StreamKDTree skdtree = new StreamKDTree();
+            skdtree.setMaxInstInLeaf(40);
+            skdtree.setNodeSplitter(splitter);
+            skdtree.setWindowSize(1000);
+            skdtree.setRebuildPolicies(rebuildPolicy);
+
+            System.out.println("Executando exp sliding window...");
+
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    skdtree.nearestNeighbour(target);
+                }
+                skdtree.update(target);
+
+                skdtree.m_Stats.printMetrics();
+                skdtree.m_Stats.resetMetrics();
+                count++;
+            }
+
+            System.out.printf("%-15s %-30s %-30s %-30s\n",
+                    "Status", "Dataset", "Splitter", "RebuildPolicy");
+
+            System.out.printf("%-15s %-30s %-30s %-30s\n",
+                    "done",
+                    stream.getHeader().getRelationName(),
+                    splitter.getClass().getSimpleName(),
+                    rebuildPolicy.getClass().getSimpleName()
+            );
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ///////////////////////////////////////////////////////
@@ -214,33 +274,37 @@ public class TesteStreamKDTRee extends MainTask {
             throw new UnsupportedOperationException("Unimplemented method 'prepareForUse'");
         }
 
-        KDTreeNodeSplitter splitter;
-        int splitterChosenIndex = splitterOption.getChosenIndex();
-        if (splitterChosenIndex == 0) {
-            System.out.println("Escolhido: Sliding Mid Point");
-            splitter = new SlidingMidPointOfWidestSide();
-        } else if (splitterChosenIndex == 1) {
-            System.out.println("Escolhido: Median Of Widest Dimension"); // Ainda não está funcionando
-            splitter = new MedianOfWidestDimension();
-        } else if (splitterChosenIndex == 2) {
-            System.out.println("Escolhido: Mid Point Of Widest Dimension"); // Não sei se funciona
-            splitter = new MidPointOfWidestDimension();
-        } else {
-            System.err.print("Nenhum splitter escolhido!");
-            return null;
-        }
+        KDTreeNodeSplitter splitter = new MidPointOfWidestDimension();
+//        int splitterChosenIndex = splitterOption.getChosenIndex();
+//        if (splitterChosenIndex == 0) {
+//            System.out.println("Escolhido: Sliding Mid Point");
+//            splitter = new SlidingMidPointOfWidestSide();
+//        } else if (splitterChosenIndex == 1) {
+//            System.out.println("Escolhido: Median Of Widest Dimension"); // Ainda não está funcionando
+//            splitter = new MedianOfWidestDimension();
+//        } else if (splitterChosenIndex == 2) {
+//            System.out.println("Escolhido: Mid Point Of Widest Dimension"); // Não sei se funciona
+//            splitter = new MidPointOfWidestDimension();
+//        } else {
+//            System.err.print("Nenhum splitter escolhido!");
+//            return null;
+//        }
         ///////////////////////////////////////////////////////
 
-        RebuildPolicy rebuildPolicy = new DeletedRatioPolicy();
+        // Politicas de rebuild da árvore
+        RebuildPolicy instancesPerLeafPolicy = new InstancesPerLeafPolicy();
+        RebuildPolicy noRebuildPolicy = new NoRebuild();
+        RebuildPolicy deletedPolicy = new DeletedRatioPolicy();
+
+        System.out.println(splitter.getClass().getName());
+        System.out.println(stream.getHeader().getRelationName());
+        System.out.println();
 
         monitor.setCurrentActivity("Testando Estrutura de Dados", -1.0);
-
-        validateExactSearch(stream, splitter);
-        if (stream.isRestartable()) {
-            stream.restart();
-        }
-        validateAgainstKDTree(stream, splitter);
-        validateMetrics(stream, splitter, rebuildPolicy);
+        // validateExactSearch(stream, splitter, noRebuildPolicy);
+        // validateAgainstKDTree(stream, splitter, instancesPerLeafPolicy);
+        // validateMetrics(stream, splitter, noRebuildPolicy);
+        expSlidingWindow(stream, splitter, deletedPolicy);
         return null;
     }
 
