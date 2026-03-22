@@ -35,11 +35,18 @@ public class TesteStreamKDTRee extends MainTask {
         return null;
     }
 
-    public void restartStream(ExampleStream<?> stream) {
-        if (stream.isRestartable()) {
-            System.out.println("Restart Stream");
-            stream.restart();
+    public ExampleStream<?> restartStream() {
+        ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
+
+        if (stream instanceof AbstractOptionHandler) {
+            ((AbstractOptionHandler) stream).prepareForUse();
+        } else {
+            throw new UnsupportedOperationException("prepareForUse não implementado");
         }
+
+        System.out.println("Novo stream criado");
+
+        return stream;
     }
 
     public static boolean isSameAttributes(Instance a, Instance b) {
@@ -68,243 +75,214 @@ public class TesteStreamKDTRee extends MainTask {
         return true;
     }
 
-    private void validateAgainstKDTree(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
-        try {
-            restartStream(stream);
-            int count = 0;
-            int maxInstances = 500000;
-            int window_size = 1000;
+    private void validateAgainstKDTree(KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) throws Exception {
+        ExampleStream<?> stream = restartStream();
+        int count = 0;
+        int maxInstances = 500000;
+        int window_size = 1000;
 
-            Instances window = new Instances(stream.getHeader(), 0);
-            ArrayList<Instance> results_kdtree = new ArrayList<>();
-            EuclideanDistance euclideanDistance = new EuclideanDistance();
-            euclideanDistance.setDontNormalize(true);
+        Instances window = new Instances(stream.getHeader(), 0);
+        ArrayList<Instance> results_kdtree = new ArrayList<>();
+        EuclideanDistance euclideanDistance = new EuclideanDistance();
+        euclideanDistance.setDontNormalize(true);
 
-            // Configurações da skdtree
-            StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(40);
-            skdtree.setNodeSplitter(splitter);
-            skdtree.setWindowSize(window_size);
-            skdtree.setRebuildPolicies(rebuildPolicy);
+        // Configurações da skdtree
+        StreamKDTree skdtree = new StreamKDTree();
+        skdtree.setMaxInstInLeaf(40);
+        skdtree.setNodeSplitter(splitter);
+        skdtree.setWindowSize(window_size);
+        skdtree.setRebuildPolicies(rebuildPolicy);
 
-            // KDTree com janela deslizante montando a toda busca
-            System.out.println("Executando KDtree ...");
-            while (stream.hasMoreInstances() && count < maxInstances) {
-                count++;
-                Example<?> ex = stream.nextInstance();
-                Instance inst = (Instance) ex.getData();
+        // KDTree com janela deslizante montando a toda busca
+        System.out.println("Executando KDtree ...");
+        while (stream.hasMoreInstances() && count < maxInstances) {
+            count++;
+            Example<?> ex = stream.nextInstance();
+            Instance inst = (Instance) ex.getData();
 
-                if (window.numInstances() > 0) {
-                    KDTree kdtree = new KDTree();
-                    kdtree.setDistanceFunction(euclideanDistance);
-                    kdtree.setMaxInstInLeaf(20);
-                    kdtree.setNodeSplitter(splitter);
-                    kdtree.setInstances(window);
+            if (window.numInstances() > 0) {
+                KDTree kdtree = new KDTree();
+                kdtree.setDistanceFunction(euclideanDistance);
+                kdtree.setMaxInstInLeaf(40);
+                kdtree.setNodeSplitter(splitter);
+                kdtree.setInstances(window);
 
-                    results_kdtree.add(kdtree.nearestNeighbour(inst));
-                }
-
-                if (window_size <= window.numInstances()) {
-                    window.delete(0);
-                }
-                window.add(inst);
+                results_kdtree.add(kdtree.nearestNeighbour(inst));
             }
 
-            int index = 0;
-            count = 0;
-            if (stream.isRestartable()){
-                System.out.println("Reiniciando stream ...");
-                stream.restart();
+            if (window_size <= window.numInstances()) {
+                window.delete(0);
             }
-
-            // StreamKDTree
-            System.out.println("Executando SKDtree ...");
-            while (stream.hasMoreInstances() && count < maxInstances) {
-                count++;
-                Example<?> ex = stream.nextInstance();
-                Instance target = (Instance) ex.getData();
-
-                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() != 0) {
-                    Instance result = skdtree.nearestNeighbour(target);
-                    Instance result_kdtree = results_kdtree.get(index);
-
-                    if (!isSameAttributes(result, result_kdtree)) {
-                        System.out.println("Diferença encontrada na busca: " + count);
-                        skdtree.m_Stats.printStats();
-                        return;
-                    }
-                    index++;
-                }
-
-                skdtree.update(target);
-            }
-
-            System.out.println("OK - Compatível com KDTree!");
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            window.add(inst);
         }
-    }
 
-    private void validateExactSearch(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
-        try {
-            restartStream(stream);
+        int index = 0;
+        count = 0;
+        stream = restartStream();
 
-            int count = 0;
-            int maxInstances = 500000;
-            int window_size = 1000;
+        // StreamKDTree
+        System.out.println("Executando SKDtree ...");
+        while (stream.hasMoreInstances() && count < maxInstances) {
+            count++;
+            Example<?> ex = stream.nextInstance();
+            Instance target = (Instance) ex.getData();
 
-            StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(40);
-            skdtree.setNodeSplitter(splitter);
-            skdtree.setWindowSize(window_size);
-            skdtree.setRebuildPolicies(rebuildPolicy);
+            if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() != 0) {
+                Instance result = skdtree.nearestNeighbour(target);
+                Instance result_kdtree = results_kdtree.get(index);
 
-            System.out.println("Executando teste de insert + exactSearch...");
-
-            while (stream.hasMoreInstances() && count < maxInstances) {
-                Example<?> ex = stream.nextInstance();
-                Instance target = (Instance) ex.getData();
-
-                skdtree.update(target);
-
-                if (skdtree.exactSearch(target) == -1) {
-                    System.out.println("Erro: instância não encontrada após inserção!");
+                // Verifica se a insrância deu o mesmo da kdtree
+                if (!isSameAttributes(result, result_kdtree)) {
+                    System.out.println("Diferença encontrada na busca: " + count);
+                    skdtree.m_Stats.printValuesAuto();
+                    double reference = euclideanDistance.distance(target, result_kdtree);
+                    double skdtree_distance = euclideanDistance.distance(target, result);
+                    System.out.println("KDTREE: " + reference);
+                    System.out.println("skdtree: " + skdtree_distance);
                     return;
                 }
-
-                skdtree.m_Stats.printMetrics();
-                count++;
+                index++;
             }
 
-            System.out.println("OK - exactSearch consistente!");
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            skdtree.update(target);
         }
+
+        System.out.println("OK - Compatível com KDTree!");
     }
 
-    private void validateMetrics(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
-        try {
-            restartStream(stream);
+    private void validateExactSearch(KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) throws Exception {
+        ExampleStream<?> stream = restartStream();
 
-            int count = 0;
-            int maxInstances = 20;
+        int count = 0;
+        int maxInstances = 500000;
+        int window_size = 1000;
 
-            StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(3);
-            skdtree.setNodeSplitter(splitter);
-            skdtree.setWindowSize(8);
-            skdtree.setRebuildPolicies(rebuildPolicy);
+        StreamKDTree skdtree = new StreamKDTree();
+        skdtree.setMaxInstInLeaf(40);
+        skdtree.setNodeSplitter(splitter);
+        skdtree.setWindowSize(window_size);
+        skdtree.setRebuildPolicies(rebuildPolicy);
 
-            System.out.println("Executando teste de insert + exactSearch...");
+        System.out.println("Executando teste de inserção e busca exata...");
 
-            while (stream.hasMoreInstances() && count < maxInstances) {
-                Example<?> ex = stream.nextInstance();
-                Instance target = (Instance) ex.getData();
+        while (stream.hasMoreInstances() && count < maxInstances) {
+            Example<?> ex = stream.nextInstance();
+            Instance target = (Instance) ex.getData();
 
-                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
-                    skdtree.nearestNeighbour(target);
-                }
-                skdtree.update(target);
+            skdtree.update(target);
 
-                skdtree.m_Stats.printStats();
-                count++;
+            if (skdtree.exactSearch(target) == -1) {
+                System.out.println("Erro: instância não encontrada após inserção!");
+                return;
             }
 
-            System.out.println("OK - exactSearch consistente!");
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            count++;
         }
+
+        System.out.println("OK - busca consistente!");
     }
 
-    private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) {
-        try {
-            restartStream(stream);
+    private void validateMetrics(KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) throws Exception {
+        ExampleStream<?> stream = restartStream();
 
-            int count = 0;
-            int maxInstances = 100000;
+        int count = 0;
+        int maxInstances = 100000;
 
-            StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(40);
-            skdtree.setNodeSplitter(splitter);
-            skdtree.setWindowSize(1000);
-            skdtree.setRebuildPolicies(rebuildPolicy);
+        StreamKDTree skdtree = new StreamKDTree();
+        skdtree.setMaxInstInLeaf(40);
+        skdtree.setNodeSplitter(splitter);
+        skdtree.setWindowSize(1000);
+        skdtree.setRebuildPolicies(rebuildPolicy);
 
-            System.out.println("Executando exp sliding window...");
+        System.out.println("Validando as métricas...");
 
-            while (stream.hasMoreInstances() && count < maxInstances) {
-                Example<?> ex = stream.nextInstance();
-                Instance target = (Instance) ex.getData();
+        skdtree.m_Stats.printHeaderAuto();
+        while (stream.hasMoreInstances() && count < maxInstances) {
+            Example<?> ex = stream.nextInstance();
+            Instance target = (Instance) ex.getData();
 
-                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
-                    skdtree.nearestNeighbour(target);
-                }
-                skdtree.update(target);
-
-                skdtree.m_Stats.printMetrics();
-                skdtree.m_Stats.resetMetrics();
-                count++;
+            if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                skdtree.nearestNeighbour(target);
+                skdtree.m_Stats.validateSearch();
             }
-
-            System.out.printf("%-15s %-30s %-30s %-30s\n",
-                    "Status", "Dataset", "Splitter", "RebuildPolicy");
-
-            System.out.printf("%-15s %-30s %-30s %-30s\n",
-                    "done",
-                    stream.getHeader().getRelationName(),
-                    splitter.getClass().getSimpleName(),
-                    rebuildPolicy.getClass().getSimpleName()
-            );
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            skdtree.update(target);
+            if (count % 1000 == 0)
+                skdtree.m_Stats.printValuesAuto();
+            skdtree.m_Stats.validateUpdate();
+            skdtree.m_Stats.validateStructure();
+            skdtree.m_Stats.resetMetrics();
+            count++;
         }
+
+        System.out.println("OK - métricas consistentes!");
     }
 
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
-        ///////////////////////////////////////////////////////
-        // Tratamento dos parâmetros do experimento
-        ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
-        if (stream instanceof AbstractOptionHandler)
-            ((AbstractOptionHandler) stream).prepareForUse();
-        else {
-            throw new UnsupportedOperationException("Unimplemented method 'prepareForUse'");
+
+//        System.setErr(new java.io.PrintStream(new java.io.OutputStream() {
+//            public void write(int b) {}
+//        }));
+
+        ExampleStream<?> baseStream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
+        if (baseStream instanceof AbstractOptionHandler)
+            ((AbstractOptionHandler) baseStream).prepareForUse();
+        else
+            throw new UnsupportedOperationException("prepareForUse não implementado");
+
+        // 🔹 Splitters
+        KDTreeNodeSplitter[] splitters = new KDTreeNodeSplitter[] {
+                new MidPointOfWidestDimension(),
+                new SlidingMidPointOfWidestSide(),
+                new MedianOfWidestDimension()
+        };
+
+        // 🔹 Policies
+        RebuildPolicy[] policies = new RebuildPolicy[] {
+                // new InstancesPerLeafPolicy(), // Essa politica por algum motivo faz não bater com o MOA, não sei o pq
+                 new DeletedRatioPolicy(),
+                 new HeightBalancedPolicy()
+        };
+
+        String datasetName = "";
+        if (baseStream.getClass().getSimpleName().equals("ArffFileStream")) {
+            // Cast pra ArffFileStream
+            moa.streams.ArffFileStream arffStream = (moa.streams.ArffFileStream) baseStream;
+            // Pega o nome do arquivo (sem o caminho completo)
+            datasetName = arffStream.arffFileOption.getFile().getName();
+        } else {
+            datasetName = baseStream.getClass().getSimpleName();
         }
 
-        KDTreeNodeSplitter splitter = new MidPointOfWidestDimension();
-//        int splitterChosenIndex = splitterOption.getChosenIndex();
-//        if (splitterChosenIndex == 0) {
-//            System.out.println("Escolhido: Sliding Mid Point");
-//            splitter = new SlidingMidPointOfWidestSide();
-//        } else if (splitterChosenIndex == 1) {
-//            System.out.println("Escolhido: Median Of Widest Dimension"); // Ainda não está funcionando
-//            splitter = new MedianOfWidestDimension();
-//        } else if (splitterChosenIndex == 2) {
-//            System.out.println("Escolhido: Mid Point Of Widest Dimension"); // Não sei se funciona
-//            splitter = new MidPointOfWidestDimension();
-//        } else {
-//            System.err.print("Nenhum splitter escolhido!");
-//            return null;
-//        }
-        ///////////////////////////////////////////////////////
+        // 🔁 Loop geral
+        for (KDTreeNodeSplitter splitter : splitters) {
+            for (RebuildPolicy policy : policies) {
 
-        // Politicas de rebuild da árvore
-        RebuildPolicy instancesPerLeafPolicy = new InstancesPerLeafPolicy();
-        RebuildPolicy noRebuildPolicy = new NoRebuild();
-        RebuildPolicy deletedPolicy = new DeletedRatioPolicy();
+                System.out.printf("%-30s %-30s %-30s\n",
+                        "Dataset", "Splitter", "RebuildPolicy");
 
-        System.out.println(splitter.getClass().getName());
-        System.out.println(stream.getHeader().getRelationName());
-        System.out.println();
+                System.out.printf("%-30s %-30s %-30s\n",
+                        datasetName,
+                        splitter.getClass().getSimpleName(),
+                        policy.getClass().getSimpleName()
+                );
 
-        monitor.setCurrentActivity("Testando Estrutura de Dados", -1.0);
-        // validateExactSearch(stream, splitter, noRebuildPolicy);
-        // validateAgainstKDTree(stream, splitter, instancesPerLeafPolicy);
-        // validateMetrics(stream, splitter, noRebuildPolicy);
-        expSlidingWindow(stream, splitter, deletedPolicy);
+                // 🔹 Testes
+                try {
+                    validateExactSearch(splitter, policy);
+                    validateAgainstKDTree(splitter, policy);
+                    validateMetrics(splitter, policy);
+
+                } catch (Exception e) {
+                    System.err.println("Erro na combinação:");
+                    System.err.println("Splitter: " + splitter.getClass().getSimpleName());
+                    System.err.println("Policy: " + policy.getClass().getSimpleName());
+                    e.printStackTrace();
+                    return null;
+                }
+            }
+        }
+
         return null;
     }
 

@@ -139,6 +139,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
         checkMissing(target);
 
+        long start_search = System.nanoTime();
         ///  COLETA DE MÉTRICAS
         m_Stats.m_BacktrackCount = 0;
         m_Stats.m_VisitedNodes = 0;
@@ -171,6 +172,9 @@ public class StreamKDTree extends NearestNeighbourSearch {
             neighbours.add(m_Instances.instance(index));
         }
 
+        long end_search = System.nanoTime();
+        m_Stats.totalSearchTime = (end_search - start_search);
+
         return neighbours;
     }
 
@@ -197,6 +201,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
     @Override
     public void update(Instance ins) throws Exception {
         checkMissing(ins);
+        long start_total = System.nanoTime();
         // Verifica se a janela deslizante precisa remover ou não
         if (m_Window == null)
             m_Window = new Window(this.m_WindowSize);
@@ -208,7 +213,10 @@ public class StreamKDTree extends NearestNeighbourSearch {
         m_Stats.m_InsertDepth = 0;
         ///
 
+        long start_insert = System.nanoTime();
         addInstanceToTree(ins);
+        long end_insert = System.nanoTime();
+
         m_Stats.m_Rebuild = false;
 
         // Verify rebuild
@@ -217,11 +225,20 @@ public class StreamKDTree extends NearestNeighbourSearch {
         for (RebuildPolicy policy : rebuildPolicies){
             if (policy.checkRebuild(m_Stats)){
                 // Montar a recriação da árvore
+                long start_rebuild = System.nanoTime();
                 this.m_Instances = m_Window.getInstancesWindow();
                 rebuildKDTree(this.m_Instances);
+                long end_rebuild = System.nanoTime();
+                // Tempo de rebuild
+                m_Stats.totalRebuildTime = (end_rebuild - start_rebuild);
                 m_Stats.m_Rebuild = true;
             }
         }
+        long end_total = System.nanoTime();
+
+        // Valores das metricas de tempos
+        m_Stats.totalUpdateTime = (end_total - start_total);
+        m_Stats.totalInsertTime = (end_insert - start_insert);
     }
 
     /**
@@ -311,7 +328,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
      *                   on rebuilding.
      */
     private void rebuildKDTree(Instances insts) throws Exception {
-        System.out.println("Rebuilding ...");
+        // System.out.println("Rebuilding ...");
         m_InstDeleted.clear();
         m_Stats.resetTreeStats();
         buildKDTree(insts);
@@ -524,18 +541,18 @@ public class StreamKDTree extends NearestNeighbourSearch {
 
             // ... now look in further half if maxDist reaches into it
             if (heap.size() < k) { // if I haven't found the first k
-                m_Stats.m_BacktrackCount++;
+                m_Stats.m_BacktrackCount++; // COLETA DE METRICA NÃO INTERFERE NA LÓGICA
                 double distanceToSplitPlane = distanceToParents
                         + m_DistanceFunction.sqDifference(node.m_SplitDim, target
                                 .value(node.m_SplitDim), node.m_SplitValue);
                 findNearestNeighbours(target, further, k, heap, distanceToSplitPlane, depth + 1);
             } else { // else see if ball centered at query intersects with the other
                 // side.
-                m_Stats.m_BacktrackCount++;
                 double distanceToSplitPlane = distanceToParents
                         + m_DistanceFunction.sqDifference(node.m_SplitDim, target
                                 .value(node.m_SplitDim), node.m_SplitValue);
                 if (heap.peek().distance >= distanceToSplitPlane) {
+                    m_Stats.m_BacktrackCount++; // COLETA DE METRICA NÃO INTERFERE NA LÓGICA
                     findNearestNeighbours(target, further, k, heap, distanceToSplitPlane, depth + 1);
                 }
             } // end else

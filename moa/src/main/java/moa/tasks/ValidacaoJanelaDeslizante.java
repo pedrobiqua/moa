@@ -35,7 +35,7 @@ public class ValidacaoJanelaDeslizante extends MainTask {
             "windowSize",
             'w',
             "Tamanho da janela deslizante",
-            1000,
+            10,
             10,
             Integer.MAX_VALUE);
 
@@ -137,6 +137,7 @@ public class ValidacaoJanelaDeslizante extends MainTask {
                 if (!window.isEmpty()) {
                     kdtreeMoa = new KDTree();
                     kdtreeMoa.setMaxInstInLeaf(1);
+                    kdtreeMoa.setNormalizeNodeWidth(false);
                     kdtreeMoa.setDistanceFunction(distFn);
                     kdtreeMoa.setInstances(window.toInstances());
 
@@ -160,8 +161,9 @@ public class ValidacaoJanelaDeslizante extends MainTask {
 
                         System.out.println("INSTÂNCIAS PROCESSADAS: " + instanciasProcessadas);
                         sameDistance(inst_moa, inst_pedro, inst, distFn);
-                        System.out.println(inst_moa);
-                        System.out.println(inst_pedro);
+                        System.out.println("MOA: " + inst_moa);
+                        System.out.println("PED: " + inst_pedro);
+                        System.out.println("BUS: " + inst);
                         System.out.println("KDTREE DO PED NÃO BATE COM O GROUNDTRUTH");
                         return null;
                     }
