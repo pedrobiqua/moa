@@ -79,7 +79,7 @@ public class ExperimentosStreamKDTree extends MainTask {
 
     private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy, boolean isArff) {
         try {
-            restartStream(stream);
+            // restartStream(stream);
             PrintStream output = configOutputMetrics();
 
             int count = 0;
@@ -154,9 +154,9 @@ public class ExperimentosStreamKDTree extends MainTask {
         if (policyChosenIndex == 0)
             rebuildPolicy = new DeletedRatioPolicy();
         else if (policyChosenIndex == 1)
-            rebuildPolicy = new InstancesPerLeafPolicy();
-        else if (policyChosenIndex == 2)
             rebuildPolicy = new HeightBalancedPolicy();
+        else if (policyChosenIndex == 2)
+            rebuildPolicy = new InstancesPerLeafPolicy();
         else if (policyChosenIndex == 3)
             rebuildPolicy = new NoRebuild();
         else
