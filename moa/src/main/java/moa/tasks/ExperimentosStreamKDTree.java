@@ -26,18 +26,17 @@ public class ExperimentosStreamKDTree extends MainTask {
 
     // TODO: LEMBRAR DE ARRUMAR ESSA DESCRIÇÃO
     public MultiChoiceOption splitterOption = new MultiChoiceOption(
-            "splitter", 'c', "Method Splitter option", new String[]{
-            "SlidingMidPointOfWidestSide", "MedianOfWidestDimension", "MidPointOfWidestDimension"},
-            new String[]{"Sliding Mid Point Of Widest side. ",
+            "splitter", 'c', "Method Splitter option", new String[] {
+                    "SlidingMidPointOfWidestSide", "MedianOfWidestDimension", "MidPointOfWidestDimension" },
+            new String[] { "Sliding Mid Point Of Widest side. ",
                     "Median Of Widest Dimension.",
                     "Mid Point of widest dimension."
             }, 0);
 
     public MultiChoiceOption policyOption = new MultiChoiceOption(
-            "policy", 'p', "Method rebuild tree", new String[]{
-            "DeletedRatioPolicy", "InstancesPerLeafPolicy", "HeightBalancedPolicy", "NoRebuild"},
-            new String[]{"Deleted Ratio 30%. ",
-                    "Instancias por folha.",
+            "policy", 'p', "Method rebuild tree", new String[] {
+                    "DeletedRatioPolicy", "HeightBalancedPolicy", "NoRebuild" },
+            new String[] { "Deleted Ratio 30%. ",
                     "Desbalanceamento da árvore.",
                     "Sem build"
             }, 0);
@@ -70,14 +69,8 @@ public class ExperimentosStreamKDTree extends MainTask {
         return null;
     }
 
-    private void restartStream(ExampleStream<?> stream) {
-        if (stream.isRestartable()) {
-            System.out.println("Restart Stream");
-            stream.restart();
-        }
-    }
-
-    private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy, boolean isArff) {
+    private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy,
+            boolean isArff) {
         try {
             // restartStream(stream);
             PrintStream output = configOutputMetrics();
@@ -120,9 +113,9 @@ public class ExperimentosStreamKDTree extends MainTask {
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         // Retirando o tempo do MOA
-//        System.setErr(new java.io.PrintStream(new java.io.OutputStream() {
-//            public void write(int b) {}
-//        }));
+        // System.setErr(new java.io.PrintStream(new java.io.OutputStream() {
+        // public void write(int b) {}
+        // }));
 
         ///////////////////////////////////////////////////////
         // Tratamento dos parâmetros do experimento
@@ -137,13 +130,15 @@ public class ExperimentosStreamKDTree extends MainTask {
         int splitterChosenIndex = splitterOption.getChosenIndex();
         if (splitterChosenIndex == 0) {
             System.out.println("Escolhido: Sliding Mid Point");
-            splitter = new SlidingMidPointOfWidestSide();
+            splitter = new StreamSlidingMidPointOfWidestSide();
         } else if (splitterChosenIndex == 1) {
-            System.out.println("Escolhido: Median Of Widest Dimension"); // Ainda não está funcionando
-            splitter = new MedianOfWidestDimension();
-        } else if (splitterChosenIndex == 2) {
-            System.out.println("Escolhido: Mid Point Of Widest Dimension"); // Não sei se funciona
+            System.out.println("Escolhido: Mid Point Of Widest Dimension");
             splitter = new MidPointOfWidestDimension();
+        } else if (splitterChosenIndex == 2) {
+            // Esse split não funciona para datastreams
+            return null;
+            // System.out.println("Escolhido: Median Of Widest Dimension");
+            // splitter = new MedianOfWidestDimension();
         } else {
             System.err.print("Nenhum splitter escolhido!");
             return null;
@@ -181,8 +176,7 @@ public class ExperimentosStreamKDTree extends MainTask {
         System.out.printf("%-30s %-30s %-30s\n",
                 datasetName,
                 splitter.getClass().getSimpleName(),
-                rebuildPolicy.getClass().getSimpleName()
-        );
+                rebuildPolicy.getClass().getSimpleName());
 
         expSlidingWindow(stream, splitter, rebuildPolicy, isArff);
         return null;

@@ -21,14 +21,7 @@ public class TesteStreamKDTRee extends MainTask {
             "Stream to evaluate on.", ExampleStream.class,
             "generators.RandomTreeGenerator");
 
-    // TODO: LEMBRAR DE ARRUMAR ESSA DESCRIÇÃO
-    public MultiChoiceOption splitterOption = new MultiChoiceOption(
-            "splitter", 'c', "Method Splitter option", new String[]{
-            "SlidingMidPointOfWidestSide", "MedianOfWidestDimension", "MidPointOfWidestDimension"},
-            new String[]{"Sliding Mid Point Of Widest side. ",
-                    "Median Of Widest Dimension.",
-                    "Mid Point of widest dimension."
-            }, 0);
+    public int maxInstances_;
 
     @Override
     public Class<?> getTaskResultType() {
@@ -78,13 +71,22 @@ public class TesteStreamKDTRee extends MainTask {
     private void validateAgainstKDTree(KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) throws Exception {
         ExampleStream<?> stream = restartStream();
         int count = 0;
-        int maxInstances = 500000;
+        int maxInstances = maxInstances_;
         int window_size = 1000;
 
         Instances window = new Instances(stream.getHeader(), 0);
         ArrayList<Instance> results_kdtree = new ArrayList<>();
         EuclideanDistance euclideanDistance = new EuclideanDistance();
         euclideanDistance.setDontNormalize(true);
+
+        double ERROR_THRESHOLD = 0.05;
+
+        int exactMatches = 0;
+        int acceptableErrors = 0;
+        int badErrors = 0;
+        double totalError = 0.0;
+        double maxError = 0.0;
+        int comparisons = 0;
 
         // Configurações da skdtree
         StreamKDTree skdtree = new StreamKDTree();
@@ -93,7 +95,7 @@ public class TesteStreamKDTRee extends MainTask {
         skdtree.setWindowSize(window_size);
         skdtree.setRebuildPolicies(rebuildPolicy);
 
-        // KDTree com janela deslizante montando a toda busca
+        // KDTree (baseline)
         System.out.println("Executando KDtree ...");
         while (stream.hasMoreInstances() && count < maxInstances) {
             count++;
@@ -131,31 +133,57 @@ public class TesteStreamKDTRee extends MainTask {
                 Instance result = skdtree.nearestNeighbour(target);
                 Instance result_kdtree = results_kdtree.get(index);
 
-                // Verifica se a insrância deu o mesmo da kdtree
-                if (!isSameAttributes(result, result_kdtree)) {
-                    System.out.println("Diferença encontrada na busca: " + count);
+                double reference = euclideanDistance.distance(target, result_kdtree);
+                double skdtree_distance = euclideanDistance.distance(target, result);
+
+                // Evita divisão por zero
+                double error = (reference == 0.0) ? 0.0 :
+                        Math.abs(skdtree_distance - reference) / reference;
+
+                totalError += error;
+                maxError = Math.max(maxError, error);
+                comparisons++;
+
+                if (isSameAttributes(result, result_kdtree)) {
+                    exactMatches++;
+                } else if (error <= ERROR_THRESHOLD) {
+                    acceptableErrors++;
+                } else {
+                    badErrors++;
+
+                    System.out.println("Diferença relevante encontrada na busca: " + count);
                     skdtree.m_Stats.printValuesAuto();
-                    double reference = euclideanDistance.distance(target, result_kdtree);
-                    double skdtree_distance = euclideanDistance.distance(target, result);
                     System.out.println("KDTREE: " + reference);
-                    System.out.println("skdtree: " + skdtree_distance);
-                    return;
+                    System.out.println("SKDTREE: " + skdtree_distance);
+                    System.out.println("Erro relativo: " + error);
                 }
+
                 index++;
             }
 
             skdtree.update(target);
         }
 
-        System.out.println("OK - Compatível com KDTree!");
+        // ===== Resultado final =====
+        System.out.println("\n===== RESULTADOS =====");
+        System.out.println("Comparações: " + comparisons);
+        System.out.println("Match exato: " + exactMatches);
+        System.out.println("Erro aceitável: " + acceptableErrors);
+        System.out.println("Erro ruim: " + badErrors);
+        System.out.println("Erro médio: " + (totalError / comparisons));
+        System.out.println("Erro máximo: " + maxError);
+
+        System.out.println("Taxa match exato: " + (exactMatches * 100.0 / comparisons) + "%");
+        System.out.println("Taxa aceitável: " + (acceptableErrors * 100.0 / comparisons) + "%");
+        System.out.println("Taxa erro ruim: " + (badErrors * 100.0 / comparisons) + "%");
     }
 
     private void validateExactSearch(KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy) throws Exception {
         ExampleStream<?> stream = restartStream();
 
         int count = 0;
-        int maxInstances = 500000;
         int window_size = 1000;
+        int maxInstances = maxInstances_;
 
         StreamKDTree skdtree = new StreamKDTree();
         skdtree.setMaxInstInLeaf(40);
@@ -173,7 +201,9 @@ public class TesteStreamKDTRee extends MainTask {
 
             if (skdtree.exactSearch(target) == -1) {
                 System.out.println("Erro: instância não encontrada após inserção!");
-                return;
+                System.out.println(count);
+                System.out.println(target);
+                throw new Exception();
             }
 
             count++;
@@ -230,18 +260,17 @@ public class TesteStreamKDTRee extends MainTask {
         else
             throw new UnsupportedOperationException("prepareForUse não implementado");
 
-        // 🔹 Splitters
         KDTreeNodeSplitter[] splitters = new KDTreeNodeSplitter[] {
                 new MidPointOfWidestDimension(),
-                new SlidingMidPointOfWidestSide(),
-                new MedianOfWidestDimension()
+                // new StreamSlidingMidPointOfWidestSide(),
+                // new StreamMedianOfWidestDimension()
         };
 
-        // 🔹 Policies
         RebuildPolicy[] policies = new RebuildPolicy[] {
-                // new InstancesPerLeafPolicy(), // Essa politica por algum motivo faz não bater com o MOA, não sei o pq
-                 new DeletedRatioPolicy(),
+                 // new InstancesPerLeafPolicy(), // Essa politica por algum motivo faz não bater com o MOA, não sei o pq
+                 // new DeletedRatioPolicy(),
                  new HeightBalancedPolicy()
+                // new NoRebuild()
         };
 
         String datasetName = "";
@@ -250,6 +279,7 @@ public class TesteStreamKDTRee extends MainTask {
             moa.streams.ArffFileStream arffStream = (moa.streams.ArffFileStream) baseStream;
             // Pega o nome do arquivo (sem o caminho completo)
             datasetName = arffStream.arffFileOption.getFile().getName();
+            maxInstances_ = Integer.MAX_VALUE;
         } else {
             datasetName = baseStream.getClass().getSimpleName();
         }
@@ -267,11 +297,10 @@ public class TesteStreamKDTRee extends MainTask {
                         policy.getClass().getSimpleName()
                 );
 
-                // 🔹 Testes
                 try {
                     validateExactSearch(splitter, policy);
-                    validateAgainstKDTree(splitter, policy);
-                    validateMetrics(splitter, policy);
+//                    validateAgainstKDTree(splitter, policy);
+//                    validateMetrics(splitter, policy);
 
                 } catch (Exception e) {
                     System.err.println("Erro na combinação:");

@@ -31,13 +31,17 @@ import java.util.TreeSet;
 /**
  * Stream KDTree
  * <br/>
- *	Stream KDtree is an incremental kdtree.
+ * Stream KDtree is an incremental kdtree.
  *
- *  <p> Depois colocar aqui as minhas publicações.</p>
+ * <p>
+ * Depois colocar aqui as minhas publicações.
+ * </p>
  *
  * References:
  * <br/>
- * Jerome H. Friedman, Jon Luis Bentley, Raphael Ari Finkel (1977). An Algorithm for Finding Best Matches in Logarithmic Expected Time. ACM Transactions on Mathematics Software. 3(3):209-226.<br/>
+ * Jerome H. Friedman, Jon Luis Bentley, Raphael Ari Finkel (1977). An Algorithm
+ * for Finding Best Matches in Logarithmic Expected Time. ACM Transactions on
+ * Mathematics Software. 3(3):209-226.<br/>
  * <br/>
  * Andrew Moore (1991). A tutorial on kd-trees.
  *
@@ -46,15 +50,18 @@ import java.util.TreeSet;
  */
 public class StreamKDTree extends NearestNeighbourSearch {
 
-    // TODO: - Arrumar os splits com defeito para testar //  Aparentemente está ok! Porém preciso validar se está certo os splits
-    //       - Falta adicionar profundidade na busca e Verificar se as métricas estão corretas
-    //       - Arrumar os experimentos para executar
+    // TODO: - Arrumar os splits com defeito para testar // Aparentemente está ok!
+    // Porém preciso validar se está certo os splits
+    // - Falta adicionar profundidade na busca e Verificar se as métricas estão
+    // corretas
+    // - Arrumar os experimentos para executar
     // NOTES:
 
     /** For serialization. */
     private static final long serialVersionUID = 1505717283763272533L;
 
-    // Posso testar uma composição de políticas de rebuild, e ver qual mantém a árvore mais estável por mais tempo.
+    // Posso testar uma composição de políticas de rebuild, e ver qual mantém a
+    // árvore mais estável por mais tempo.
     private final List<RebuildPolicy> rebuildPolicies;
     {
         rebuildPolicies = new ArrayList<>();
@@ -77,13 +84,13 @@ public class StreamKDTree extends NearestNeighbourSearch {
     protected int[] m_InstList;
 
     /** Tree nodes deleted **/
-    protected TreeSet<Integer> m_InstDeleted= new TreeSet<>();
+    protected TreeSet<Integer> m_InstDeleted = new TreeSet<>();
 
     /** The root node of the tree. */ // LEMBRAR DE COLOCAR PROTECTED
     public KDTreeNode m_Root;
 
     /** The node splitter. */
-    protected KDTreeNodeSplitter m_Splitter = new SlidingMidPointOfWidestSide();
+    protected KDTreeNodeSplitter m_Splitter = new StreamSlidingMidPointOfWidestSide();
 
     /** The max instances in leaf */
     public static int m_MaxInstInLeaf = 40;
@@ -140,7 +147,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         checkMissing(target);
 
         long start_search = System.nanoTime();
-        ///  COLETA DE MÉTRICAS
+        /// COLETA DE MÉTRICAS
         m_Stats.m_BacktrackCount = 0;
         m_Stats.m_VisitedNodes = 0;
         m_Stats.m_VisitedInstances = 0;
@@ -222,8 +229,8 @@ public class StreamKDTree extends NearestNeighbourSearch {
         // Verify rebuild
         if (rebuildPolicies.isEmpty())
             throw new Exception("Not add rebuild policy");
-        for (RebuildPolicy policy : rebuildPolicies){
-            if (policy.checkRebuild(m_Stats)){
+        for (RebuildPolicy policy : rebuildPolicies) {
+            if (policy.checkRebuild(m_Stats)) {
                 // Montar a recriação da árvore
                 long start_rebuild = System.nanoTime();
                 this.m_Instances = m_Window.getInstancesWindow();
@@ -259,7 +266,9 @@ public class StreamKDTree extends NearestNeighbourSearch {
         StreamKDTree.m_MaxInstInLeaf = m_MaxInstInLeaf;
     }
 
-    public void setNodeSplitter(KDTreeNodeSplitter splitter) {this.m_Splitter = splitter; }
+    public void setNodeSplitter(KDTreeNodeSplitter splitter) {
+        this.m_Splitter = splitter;
+    }
 
     public void setWindowSize(int window_size) {
         this.m_WindowSize = window_size;
@@ -647,16 +656,16 @@ public class StreamKDTree extends NearestNeighbourSearch {
                 m_Stats.m_InsertDepth++; // Acrescenta 1, pois foi realizado o split
             }
         } else {
-                // Esquerda
+            // Esquerda
             if (inst.value(node.m_SplitDim) <= node.m_SplitValue) {
-//                if (depth > m_Stats.m_MaxDepth)
-//                    m_Stats.m_MaxDepth = depth;
+                // if (depth > m_Stats.m_MaxDepth)
+                // m_Stats.m_MaxDepth = depth;
                 addInstance(inst, node.m_Left, depth + 1);
                 afterAddInstance(node.m_Right);
                 // Direita
             } else {
-//                if (depth > m_Stats.m_MaxDepth)
-//                    m_Stats.m_MaxDepth = depth;
+                // if (depth > m_Stats.m_MaxDepth)
+                // m_Stats.m_MaxDepth = depth;
                 addInstance(inst, node.m_Right, depth + 1);
             }
 
@@ -679,7 +688,7 @@ public class StreamKDTree extends NearestNeighbourSearch {
         if (instance1.numValues() != instance2.numValues())
             return false;
 
-        for (int i = 0; i < instance1.toDoubleArray().length; i++){
+        for (int i = 0; i < instance1.toDoubleArray().length; i++) {
             if (instance1.value(i) != instance2.value(i))
                 return false;
         }
@@ -693,10 +702,11 @@ public class StreamKDTree extends NearestNeighbourSearch {
 
     private int search(KDTreeNode node, Instance inst) {
         int idx_found = -1;
-        if (node.isALeaf()){
+        if (node.isALeaf()) {
             for (int idx = node.m_Start; idx <= node.m_End; ++idx) {
                 // Se for igual e não foi deletado
-                if (instanceIsEqual(inst, m_Instances.instance(m_InstList[idx])) && !m_InstDeleted.contains(m_InstList[idx]))
+                if (instanceIsEqual(inst, m_Instances.instance(m_InstList[idx]))
+                        && !m_InstDeleted.contains(m_InstList[idx]))
                     return m_InstList[idx]; // Retorna o indice
             }
         } else {

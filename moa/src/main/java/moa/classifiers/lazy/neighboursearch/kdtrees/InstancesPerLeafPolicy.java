@@ -2,6 +2,7 @@ package moa.classifiers.lazy.neighboursearch.kdtrees;
 
 import moa.classifiers.lazy.neighboursearch.StreamKDTree;
 
+// ALTERAR ISSO! A MÉDIA ENGANA BASTANTE, VISTO QUE ESSA ÁRVORE ESTÁ DESBALANCEADA
 public class InstancesPerLeafPolicy implements RebuildPolicy {
     @Override
     public boolean checkRebuild(KDTreeStats stats) throws Exception {
