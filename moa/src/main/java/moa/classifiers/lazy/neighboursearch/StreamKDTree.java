@@ -226,6 +226,11 @@ public class StreamKDTree extends NearestNeighbourSearch {
 
         m_Stats.m_Rebuild = false;
 
+
+        // Mostrando a metrica
+//        System.out.println(m_Stats.m_MaxDepth);
+//        System.out.println("Result árvore balance: " + Math.log(m_Stats.m_NumNodes) / Math.log(1.0 / 0.6));
+
         // Verify rebuild
         if (rebuildPolicies.isEmpty())
             throw new Exception("Not add rebuild policy");
@@ -789,6 +794,24 @@ public class StreamKDTree extends NearestNeighbourSearch {
                     " -> node" + node.m_Right.m_NodeNumber + ";");
             printNode(node.m_Right);
         }
+    }
+
+    // TESTANDO SE OS NÚMEROS DE NÓS BATE COM A METRICA COLETADA
+    private int contador;
+
+    public void inorder(KDTreeNode node) {
+        if (node == null)
+            return;
+
+        inorder(node.m_Left);
+        contador++;
+        inorder(node.m_Right);
+    }
+
+    public int countNumNodes() {
+        contador = 0;
+        inorder(m_Root);
+        return contador;
     }
 
     public void setRebuildPolicies(RebuildPolicy rebuildPolicies) {
