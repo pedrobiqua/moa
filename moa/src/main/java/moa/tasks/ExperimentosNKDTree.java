@@ -142,6 +142,12 @@ public class ExperimentosNKDTree extends MainTask {
                     datasetName,
                     rebuildPolicy.getClass().getSimpleName(),
                     alphaOption.getValue());
+        else {
+            System.out.printf("%-30s %-30s %-30s\n",
+                    datasetName,
+                    rebuildPolicy.getClass().getSimpleName(),
+                    0.3);
+        }
 
         expSlidingWindow(stream, rebuildPolicy, isArff);
         return null;
