@@ -10,7 +10,6 @@ import moa.core.Example;
 import moa.core.ObjectRepository;
 import moa.streams.ExampleStream;
 
-import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
@@ -198,6 +197,10 @@ public class TesteStreamKDTRee extends MainTask {
             Instance target = (Instance) ex.getData();
 
             skdtree.update(target);
+            int num_nodes = skdtree.countNumNodes();
+            if (skdtree.m_Stats.m_NumNodes != num_nodes)
+                throw new Exception("Erro!, os números de nós não batem");
+            skdtree.m_Stats.resetMetrics();
 
             if (skdtree.exactSearch(target) == -1) {
                 System.out.println("Erro: instância não encontrada após inserção!");
@@ -261,16 +264,21 @@ public class TesteStreamKDTRee extends MainTask {
             throw new UnsupportedOperationException("prepareForUse não implementado");
 
         KDTreeNodeSplitter[] splitters = new KDTreeNodeSplitter[] {
-                new MidPointOfWidestDimension(),
-                // new StreamSlidingMidPointOfWidestSide(),
+                // new MidPointOfWidestDimension(),
+                new StreamSlidingMidPointOfWidestSide(),
                 // new StreamMedianOfWidestDimension()
+                // new VarianceMidPoint()
+                // new VarianceMedianPoint()
+                // new AxisMidPoint()
         };
+
+        double alpha = 0.6;
 
         RebuildPolicy[] policies = new RebuildPolicy[] {
                  // new InstancesPerLeafPolicy(), // Essa politica por algum motivo faz não bater com o MOA, não sei o pq
                  // new DeletedRatioPolicy(),
-                 new HeightBalancedPolicy()
-                // new NoRebuild()
+                 new HeightBalancedPolicy(alpha)
+                 // new NoRebuild()
         };
 
         String datasetName = "";
@@ -281,6 +289,7 @@ public class TesteStreamKDTRee extends MainTask {
             datasetName = arffStream.arffFileOption.getFile().getName();
             maxInstances_ = Integer.MAX_VALUE;
         } else {
+            maxInstances_ = 100000;
             datasetName = baseStream.getClass().getSimpleName();
         }
 
@@ -299,7 +308,7 @@ public class TesteStreamKDTRee extends MainTask {
 
                 try {
                     validateExactSearch(splitter, policy);
-//                    validateAgainstKDTree(splitter, policy);
+                    validateAgainstKDTree(splitter, policy);
 //                    validateMetrics(splitter, policy);
 
                 } catch (Exception e) {
