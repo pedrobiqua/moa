@@ -86,6 +86,7 @@ public interface DistanceFunction  {
    */
   public double distance(Instance first, Instance second);
 
+  public void setDontNormalize(boolean normalize);
 
   /**
    * Calculates the distance between two instances. Offers speed up (if the 

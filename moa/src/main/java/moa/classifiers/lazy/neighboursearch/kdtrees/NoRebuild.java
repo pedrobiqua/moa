@@ -8,4 +8,9 @@ public class NoRebuild implements RebuildPolicy {
     public boolean checkRebuild(KDTreeStats stats) throws Exception {
         return false;
     }
+
+    @Override
+    public boolean checkRebuild(StatsTree stats) throws Exception {
+        return false;
+    }
 }

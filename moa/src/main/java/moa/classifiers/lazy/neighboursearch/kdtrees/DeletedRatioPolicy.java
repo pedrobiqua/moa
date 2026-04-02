@@ -17,4 +17,18 @@ public class DeletedRatioPolicy implements RebuildPolicy {
 
         return check_result;
     }
+
+    @Override
+    public boolean checkRebuild(StatsTree stats) throws Exception {
+        boolean check_result = false;
+        if (stats.m_numNodes == 0)
+            throw new Exception("Divisão por zero!");
+
+        // System.out.println(((double) stats.m_numNodesDeleted / (double) stats.m_numNodes));
+        if (((double) stats.m_numNodesDeleted / (double) stats.m_numNodes) >= 0.3) {
+            check_result = true;
+        }
+
+        return check_result;
+    }
 }

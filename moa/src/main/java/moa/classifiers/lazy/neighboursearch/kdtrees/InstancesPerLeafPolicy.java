@@ -10,4 +10,9 @@ public class InstancesPerLeafPolicy implements RebuildPolicy {
             return false;
         return ((double)stats.m_NumInstancias / stats.m_NumLeaves) > StreamKDTree.m_MaxInstInLeaf;
     }
+
+    @Override
+    public boolean checkRebuild(StatsTree stats) throws Exception {
+        return false;
+    }
 }

@@ -1,6 +1,7 @@
 package moa.tasks;
 
 import com.github.javacliparser.FileOption;
+import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
 import moa.classifiers.lazy.neighboursearch.StreamKDTree;
@@ -15,7 +16,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 
-public class ExperimentosStreamKDTree extends MainTask {
+public class ExperimentosNKDTree extends MainTask {
 
     public FileOption outputFileOption = new FileOption("outputFile", 'o',
             "File to append output temp train and test to.", null, ".txt", true);
@@ -24,15 +25,6 @@ public class ExperimentosStreamKDTree extends MainTask {
             "Stream to evaluate on.", ExampleStream.class,
             "generators.RandomTreeGenerator");
 
-    // TODO: LEMBRAR DE ARRUMAR ESSA DESCRIÇÃO
-    public MultiChoiceOption splitterOption = new MultiChoiceOption(
-            "splitter", 'c', "Method Splitter option", new String[] {
-                    "SlidingMidPointOfWidestSide", "MedianOfWidestDimension", "MidPointOfWidestDimension" },
-            new String[] { "Sliding Mid Point Of Widest side. ",
-                    "Median Of Widest Dimension.",
-                    "Mid Point of widest dimension."
-            }, 0);
-
     public MultiChoiceOption policyOption = new MultiChoiceOption(
             "policy", 'p', "Method rebuild tree", new String[] {
                     "DeletedRatioPolicy", "HeightBalancedPolicy", "NoRebuild" },
@@ -40,6 +32,8 @@ public class ExperimentosStreamKDTree extends MainTask {
                     "Desbalanceamento da árvore.",
                     "Sem build"
             }, 0);
+
+    public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.5, 1.0);
 
     public PrintStream configOutputMetrics() throws Exception {
         File outputTempFile = this.outputFileOption.getFile();
@@ -69,8 +63,7 @@ public class ExperimentosStreamKDTree extends MainTask {
         return null;
     }
 
-    private void expSlidingWindow(ExampleStream<?> stream, KDTreeNodeSplitter splitter, RebuildPolicy rebuildPolicy,
-            boolean isArff) {
+    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
         try {
             // restartStream(stream);
             PrintStream output = configOutputMetrics();
@@ -82,14 +75,13 @@ public class ExperimentosStreamKDTree extends MainTask {
             else
                 maxInstances = 500000;
 
-            StreamKDTree skdtree = new StreamKDTree();
-            skdtree.setMaxInstInLeaf(40);
-            skdtree.setNodeSplitter(splitter);
+            NSKDtree skdtree = new NSKDtree();
             skdtree.setWindowSize(1000);
             skdtree.setRebuildPolicies(rebuildPolicy);
+            skdtree.setInstances(stream.getHeader()); // Cria instances vazio
 
             System.out.println("Executando exp sliding window...");
-            output.println(skdtree.m_Stats.headerMetrics());
+            output.println(skdtree.stats.getHeader());
             while (stream.hasMoreInstances() && count < maxInstances) {
                 Example<?> ex = stream.nextInstance();
                 Instance target = (Instance) ex.getData();
@@ -100,8 +92,7 @@ public class ExperimentosStreamKDTree extends MainTask {
                 skdtree.update(target);
 
                 // Extraindo as metricas coletadas do update e busca
-                output.println(skdtree.m_Stats.metricsAndStats());
-                skdtree.m_Stats.resetMetrics();
+                output.println(skdtree.stats.getMetrics());
                 count++;
             }
 
@@ -112,11 +103,6 @@ public class ExperimentosStreamKDTree extends MainTask {
 
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
-        // Retirando o tempo do MOA
-        // System.setErr(new java.io.PrintStream(new java.io.OutputStream() {
-        // public void write(int b) {}
-        // }));
-
         ///////////////////////////////////////////////////////
         // Tratamento dos parâmetros do experimento
         ExampleStream<?> stream = (ExampleStream<?>) getPreparedClassOption(this.streamOption);
@@ -126,34 +112,12 @@ public class ExperimentosStreamKDTree extends MainTask {
             throw new UnsupportedOperationException("Unimplemented method 'prepareForUse'");
         }
 
-        KDTreeNodeSplitter splitter = new MidPointOfWidestDimension();
-        int splitterChosenIndex = splitterOption.getChosenIndex();
-        if (splitterChosenIndex == 0) {
-            System.out.println("Escolhido: Sliding Mid Point");
-            splitter = new StreamSlidingMidPointOfWidestSide();
-        } else if (splitterChosenIndex == 1) {
-            System.out.println("Escolhido: Mid Point Of Widest Dimension");
-            splitter = new MidPointOfWidestDimension();
-        } else if (splitterChosenIndex == 2) {
-            // Esse split não funciona para datastreams
-            return null;
-            // System.out.println("Escolhido: Median Of Widest Dimension");
-            // splitter = new MedianOfWidestDimension();
-        } else {
-            System.err.print("Nenhum splitter escolhido!");
-            return null;
-        }
-
         int policyChosenIndex = policyOption.getChosenIndex();
         RebuildPolicy rebuildPolicy;
         if (policyChosenIndex == 0)
             rebuildPolicy = new DeletedRatioPolicy();
         else if (policyChosenIndex == 1)
-            rebuildPolicy = new HeightBalancedPolicy(0.6);
-        else if (policyChosenIndex == 2)
-            rebuildPolicy = new InstancesPerLeafPolicy();
-        else if (policyChosenIndex == 3)
-            rebuildPolicy = new NoRebuild();
+            rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
         else
             rebuildPolicy = new DeletedRatioPolicy();
         ///////////////////////////////////////////////////////
@@ -171,14 +135,15 @@ public class ExperimentosStreamKDTree extends MainTask {
         }
 
         System.out.printf("%-30s %-30s %-30s\n",
-                "Dataset", "Splitter", "RebuildPolicy");
+                "Dataset", "RebuildPolicy", "Parameters");
 
-        System.out.printf("%-30s %-30s %-30s\n",
-                datasetName,
-                splitter.getClass().getSimpleName(),
-                rebuildPolicy.getClass().getSimpleName());
+        if (rebuildPolicy instanceof HeightBalancedPolicy)
+            System.out.printf("%-30s %-30s %-30s\n",
+                    datasetName,
+                    rebuildPolicy.getClass().getSimpleName(),
+                    alphaOption.getValue());
 
-        expSlidingWindow(stream, splitter, rebuildPolicy, isArff);
+        expSlidingWindow(stream, rebuildPolicy, isArff);
         return null;
     }
 
