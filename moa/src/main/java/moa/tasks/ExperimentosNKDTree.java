@@ -81,18 +81,26 @@ public class ExperimentosNKDTree extends MainTask {
             skdtree.setInstances(stream.getHeader()); // Cria instances vazio
 
             System.out.println("Executando exp sliding window...");
-            output.println(skdtree.stats.getHeader());
+            output.println(skdtree.stats.getHeader() + ",time_update,time_search");
             while (stream.hasMoreInstances() && count < maxInstances) {
                 Example<?> ex = stream.nextInstance();
                 Instance target = (Instance) ex.getData();
 
+                long time_search = 0;
                 if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    long start_search = System.nanoTime();
                     skdtree.nearestNeighbour(target);
+                    long end_search = System.nanoTime();
+                    time_search = end_search - start_search;
                 }
-                skdtree.update(target);
 
-                // Extraindo as metricas coletadas do update e busca
-                output.println(skdtree.stats.getMetrics());
+                long start_update = System.nanoTime();
+                skdtree.update(target);
+                long end_update = System.nanoTime();
+                long time_update = end_update - start_update;
+
+                // Extraindo as metricas coletadas do update e busca e tempo de inserção e busca
+                output.println(skdtree.stats.getMetrics() + "," + time_update + "," + time_search);
                 count++;
             }
 
