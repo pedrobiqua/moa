@@ -3,9 +3,6 @@ package moa.classifiers.lazy.neighboursearch.kdtrees;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import moa.classifiers.lazy.neighboursearch.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.TreeSet;
 
 public class NSKDtree extends NearestNeighbourSearch {
@@ -180,12 +177,12 @@ public class NSKDtree extends NearestNeighbourSearch {
         int depth = 0;
         KDTreeNode p = m_Root;
         KDTreeNode prev = null;
-        double[] newInstance = inst.toDoubleArray();
+        // double[] newInstance = inst.toDoubleArray();
 
         while (p != null) {
             prev = p;
             int axis = depth % m_numDim;
-            if (newInstance[axis] <= m_Instances.instance(p.m_NodeNumber).value(axis)) {
+            if (inst.value(axis) <= m_Instances.instance(p.m_NodeNumber).value(axis)) {
                 p = p.m_Left;
             } else {
                 p = p.m_Right;
@@ -212,7 +209,7 @@ public class NSKDtree extends NearestNeighbourSearch {
         int axis = (depth - 1) % this.m_numDim;
 
         assert prev != null;
-        if (newInstance[axis] <= m_Instances.instance(prev.m_NodeNumber).value(axis)) {
+        if (inst.value(axis) <= m_Instances.instance(prev.m_NodeNumber).value(axis)) {
             prev.m_Left = new KDTreeNode();
             prev.m_Left.m_NodeNumber = m_Instances.numInstances() - 1;
             prev.m_Left.m_SplitDim = depth % m_numDim;
@@ -274,7 +271,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 
         // Pega o indice da mediana e organiza o insts para que os que são menores vão para esquerda e o resto para direita
         int median = (left + (right - left) / 2);
-        int medianIdx = select(splitDim, insts, left, right, median); // Select retorna qual instancia é a do meio
+        int medianIdx = select(splitDim, insts, left, right, median); // Select retorna qual instancia é a mediana
         double medianValue = m_Instances.instance(medianIdx).value(splitDim);
 
         KDTreeNode node = new KDTreeNode();
@@ -282,13 +279,41 @@ public class NSKDtree extends NearestNeighbourSearch {
         node.m_SplitValue = medianValue;
         node.m_NodeNumber = medianIdx;
 
+        // Separa entre esquerda e direita
+        int countLeft = 0;
+        int countRight = 0;
+        for (int inst : insts) {
+            if (inst != medianIdx) {
+                if (m_Instances.instance(inst).value(splitDim) <= medianValue) {
+                    countLeft++;
+                } else {
+                    countRight++;
+                }
+            }
+        }
+        int[] left_insts = new int[countLeft];
+        int[] right_insts = new int[countRight];
+        int i = 0;
+        int j = 0;
+        for (int index : insts) {
+            if (index != medianIdx) {
+                if (m_Instances.instance(index).value(splitDim) <= medianValue) {
+                    left_insts[i] = index;
+                    i++;
+                } else {
+                    right_insts[j] = index;
+                    j++;
+                }
+            }
+        }
+
         if (stats.m_heightTree < depth) {
             stats.m_heightTree = depth;
         }
 
-        // Recursão left e right
-        node.m_Left = splitInstances(insts, depth + 1, left, median - 1);
-        node.m_Right = splitInstances(insts, depth + 1,median + 1, right);
+        // Recursão left e right passando as novas instancias
+        node.m_Left = splitInstances(left_insts, depth + 1, 0, left_insts.length - 1);
+        node.m_Right = splitInstances(right_insts, depth + 1,0, right_insts.length - 1);
 
         return node;
     }
@@ -384,6 +409,25 @@ public class NSKDtree extends NearestNeighbourSearch {
         preorder(node.m_Right);
     }
 
+    public void validateNodesTree() {
+        TreeSet<Integer> used_numbers = new TreeSet<>();
+        validate(m_Root, used_numbers);
+    }
+
+    private void validate(KDTreeNode node, TreeSet<Integer> used_numbers) {
+        if (node == null) {
+            return;
+        }
+
+        validate(node.m_Left, used_numbers);
+        int number_node = node.m_NodeNumber;
+        if (used_numbers.contains(number_node)) {
+            System.out.println("Número de nodes duplicados!!");
+        }
+        used_numbers.add(number_node);
+        validate(node.m_Right, used_numbers);
+    }
+
 
     private void inorder(KDTreeNode node) {
         if (node == null) {
@@ -395,18 +439,22 @@ public class NSKDtree extends NearestNeighbourSearch {
         // imprime o nó | mostra em sublinhado o valor usado no corte
         String nodeId = Integer.toString(node.m_NodeNumber);
         StringBuilder label = new StringBuilder("<(");
-        for (int i = 0; i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 1; i++){
-            if (i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 2) {
-                if (i != node.m_SplitDim)
-                    label.append(m_Instances.instance(node.m_NodeNumber).value(i)).append(" ");
-                else
-                    label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>").append(" ");
-            } else {
-                if (i != node.m_SplitDim)
-                    label.append(m_Instances.instance(node.m_NodeNumber).value(i));
-                else
-                    label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>");
+        if (m_numDim == 2) {
+            for (int i = 0; i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 1; i++) {
+                if (i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 2) {
+                    if (i != node.m_SplitDim)
+                        label.append(m_Instances.instance(node.m_NodeNumber).value(i)).append(" ");
+                    else
+                        label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>").append(" ");
+                } else {
+                    if (i != node.m_SplitDim)
+                        label.append(m_Instances.instance(node.m_NodeNumber).value(i));
+                    else
+                        label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>");
+                }
             }
+        } else {
+            label.append(node.m_SplitValue);
         }
         label.append(")>");
 

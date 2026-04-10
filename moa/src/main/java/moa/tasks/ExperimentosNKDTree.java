@@ -4,7 +4,7 @@ import com.github.javacliparser.FileOption;
 import com.github.javacliparser.FloatOption;
 import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
-import moa.classifiers.lazy.neighboursearch.StreamKDTree;
+import com.yahoo.labs.samoa.instances.Instances;
 import moa.classifiers.lazy.neighboursearch.kdtrees.*;
 import moa.core.Example;
 import moa.core.ObjectRepository;
@@ -65,10 +65,10 @@ public class ExperimentosNKDTree extends MainTask {
 
     private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
         try {
-            // restartStream(stream);
             PrintStream output = configOutputMetrics();
 
             int count = 0;
+            int window_size = 1000;
             long maxInstances;
             if (isArff)
                 maxInstances = Integer.MAX_VALUE;
@@ -76,9 +76,9 @@ public class ExperimentosNKDTree extends MainTask {
                 maxInstances = 500000;
 
             NSKDtree skdtree = new NSKDtree();
-            skdtree.setWindowSize(1000);
+            skdtree.setWindowSize(window_size);
             skdtree.setRebuildPolicies(rebuildPolicy);
-            skdtree.setInstances(stream.getHeader()); // Cria instances vazio
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio
 
             System.out.println("Executando exp sliding window...");
             output.println(skdtree.stats.getHeader() + ",time_update,time_search");
@@ -104,6 +104,36 @@ public class ExperimentosNKDTree extends MainTask {
                 count++;
             }
 
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
+        try {
+            int count = 0;
+            long maxInstances = 500000;
+            int window_size = 1000;
+            NSKDtree skdtree = new NSKDtree();
+            skdtree.setWindowSize(window_size);
+            skdtree.setRebuildPolicies(rebuildPolicy);
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando tamanho do array
+
+            System.out.println("Executando warmup...");
+
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    skdtree.nearestNeighbour(target);
+                }
+
+                skdtree.update(target); // Atualiza a estrutura
+                count++;
+            }
+
+            stream.restart();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -157,6 +187,9 @@ public class ExperimentosNKDTree extends MainTask {
                     0.3);
         }
 
+        for (int i = 0; i <= 3; i++) {
+            warmup(stream, rebuildPolicy, isArff);
+        }
         expSlidingWindow(stream, rebuildPolicy, isArff);
         return null;
     }
