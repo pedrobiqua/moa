@@ -8,7 +8,7 @@ import java.util.TreeSet;
 public class NSKDtree extends NearestNeighbourSearch {
 
     /// Atributos da classe
-    private RebuildPolicy m_RebuildPolicies = new DeletedRatioPolicy();
+    private RebuildPolicy m_RebuildPolicies;
 
     private int m_WindowSize = 1000;
     private Window m_Window;

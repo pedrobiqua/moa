@@ -147,7 +147,7 @@ public class ExperimentosStreamKDTree extends MainTask {
         int policyChosenIndex = policyOption.getChosenIndex();
         RebuildPolicy rebuildPolicy;
         if (policyChosenIndex == 0)
-            rebuildPolicy = new DeletedRatioPolicy();
+            rebuildPolicy = new DeletedRatioPolicy(0.3);
         else if (policyChosenIndex == 1)
             rebuildPolicy = new HeightBalancedPolicy(0.6);
         else if (policyChosenIndex == 2)
@@ -155,7 +155,7 @@ public class ExperimentosStreamKDTree extends MainTask {
         else if (policyChosenIndex == 3)
             rebuildPolicy = new NoRebuild();
         else
-            rebuildPolicy = new DeletedRatioPolicy();
+            rebuildPolicy = new DeletedRatioPolicy(0.3);
         ///////////////////////////////////////////////////////
 
         boolean isArff = false;

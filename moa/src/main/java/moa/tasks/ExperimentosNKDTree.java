@@ -15,6 +15,7 @@ import moa.streams.ExampleStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.nio.file.Files;
 
 public class ExperimentosNKDTree extends MainTask {
 
@@ -33,7 +34,7 @@ public class ExperimentosNKDTree extends MainTask {
                     "Sem build"
             }, 0);
 
-    public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.5, 1.0);
+    public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.2, 1.0);
 
     public PrintStream configOutputMetrics() throws Exception {
         File outputTempFile = this.outputFileOption.getFile();
@@ -58,14 +59,38 @@ public class ExperimentosNKDTree extends MainTask {
         }
     }
 
+    public PrintStream timeOutputExp(String dataset_name, RebuildPolicy policy) throws Exception {
+        String parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName();
+        String nameFile = dataset_name + parameters + "_time_exp.csv";
+        File outputTempFile = new File(this.outputFileOption.getFile().getParent() + "/" + nameFile);
+
+        PrintStream outputStream = null;
+        try {
+            if (outputTempFile.exists()) {
+                outputStream = new PrintStream(
+                        new FileOutputStream(outputTempFile, true), false);
+            } else {
+                outputStream = new PrintStream(
+                        Files.newOutputStream(outputTempFile.toPath()), false);
+                outputStream.println("time_exp");
+            }
+
+            return outputStream;
+        } catch (Exception ex) {
+            throw new RuntimeException(
+                    "Unable to open prediction result file: " + outputTempFile, ex);
+        }
+    }
+
     @Override
     public Class<?> getTaskResultType() {
         return null;
     }
 
-    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
+    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff, String datasetName) {
         try {
             PrintStream output = configOutputMetrics();
+            PrintStream exp_time_output = timeOutputExp(datasetName, rebuildPolicy);
 
             int count = 0;
             int window_size = 1000;
@@ -81,7 +106,10 @@ public class ExperimentosNKDTree extends MainTask {
             skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio
 
             System.out.println("Executando exp sliding window...");
+
+            /// Cabeçalho
             output.println(skdtree.stats.getHeader() + ",time_update,time_search");
+            double start_exp_time = System.nanoTime();
             while (stream.hasMoreInstances() && count < maxInstances) {
                 Example<?> ex = stream.nextInstance();
                 Instance target = (Instance) ex.getData();
@@ -103,6 +131,9 @@ public class ExperimentosNKDTree extends MainTask {
                 output.println(skdtree.stats.getMetrics() + "," + time_update + "," + time_search);
                 count++;
             }
+            double end_exp_time = System.nanoTime();
+            double time_exp = end_exp_time - start_exp_time;
+            exp_time_output.println(time_exp);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -153,11 +184,11 @@ public class ExperimentosNKDTree extends MainTask {
         int policyChosenIndex = policyOption.getChosenIndex();
         RebuildPolicy rebuildPolicy;
         if (policyChosenIndex == 0)
-            rebuildPolicy = new DeletedRatioPolicy();
+            rebuildPolicy = new DeletedRatioPolicy(alphaOption.getValue());
         else if (policyChosenIndex == 1)
             rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
         else
-            rebuildPolicy = new DeletedRatioPolicy();
+            rebuildPolicy = new DeletedRatioPolicy(0.3);
         ///////////////////////////////////////////////////////
 
         boolean isArff = false;
@@ -166,8 +197,8 @@ public class ExperimentosNKDTree extends MainTask {
             isArff = true;
             // Cast pra ArffFileStream
             moa.streams.ArffFileStream arffStream = (moa.streams.ArffFileStream) stream;
-            // Pega o nome do arquivo (sem o caminho completo)
-            datasetName = arffStream.arffFileOption.getFile().getName();
+            // Pega o nome do arquivo (sem o caminho completo e sem extensão)
+            datasetName = arffStream.arffFileOption.getFile().getName().split(".arff")[0];
         } else {
             datasetName = stream.getClass().getSimpleName();
         }
@@ -175,22 +206,15 @@ public class ExperimentosNKDTree extends MainTask {
         System.out.printf("%-30s %-30s %-30s\n",
                 "Dataset", "RebuildPolicy", "Parameters");
 
-        if (rebuildPolicy instanceof HeightBalancedPolicy)
-            System.out.printf("%-30s %-30s %-30s\n",
-                    datasetName,
-                    rebuildPolicy.getClass().getSimpleName(),
-                    alphaOption.getValue());
-        else {
-            System.out.printf("%-30s %-30s %-30s\n",
-                    datasetName,
-                    rebuildPolicy.getClass().getSimpleName(),
-                    0.3);
-        }
+        System.out.printf("%-30s %-30s %-30s\n",
+                datasetName,
+                rebuildPolicy.getClass().getSimpleName(),
+                alphaOption.getValue());
 
         for (int i = 0; i <= 3; i++) {
             warmup(stream, rebuildPolicy, isArff);
         }
-        expSlidingWindow(stream, rebuildPolicy, isArff);
+        expSlidingWindow(stream, rebuildPolicy, isArff, datasetName);
         return null;
     }
 

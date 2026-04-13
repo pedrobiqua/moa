@@ -1,13 +1,20 @@
 package moa.classifiers.lazy.neighboursearch.kdtrees;
 
 public class DeletedRatioPolicy implements RebuildPolicy {
+
+    private double ratio = 0.3;
+
+    public DeletedRatioPolicy(double ratio) {
+        this.ratio = ratio;
+    }
+
     @Override
     public boolean checkRebuild(KDTreeStats stats) throws Exception {
         boolean check_result = false;
         if (stats.m_NumInstancias == 0)
             throw new Exception("Divisão por zero!");
 
-        if (((double) stats.m_NumInstancesDeleted / (double) stats.m_NumInstancias) >= 0.3) {
+        if (((double) stats.m_NumInstancesDeleted / (double) stats.m_NumInstancias) >= ratio) {
             check_result = true;
         }
 
@@ -25,7 +32,7 @@ public class DeletedRatioPolicy implements RebuildPolicy {
             throw new Exception("Divisão por zero!");
 
         // System.out.println(((double) stats.m_numNodesDeleted / (double) stats.m_numNodes));
-        if (((double) stats.m_numNodesDeleted / (double) stats.m_numNodes) >= 0.3) {
+        if (((double) stats.m_numNodesDeleted / (double) stats.m_numNodes) >= ratio) {
             check_result = true;
         }
 
