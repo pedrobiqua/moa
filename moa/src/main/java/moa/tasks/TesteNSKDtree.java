@@ -2,6 +2,7 @@ package moa.tasks;
 
 import com.github.javacliparser.FloatOption;
 import com.yahoo.labs.samoa.instances.Instance;
+import com.yahoo.labs.samoa.instances.Instances;
 import moa.classifiers.lazy.neighboursearch.kdtrees.*;
 import moa.core.Example;
 import moa.core.ObjectRepository;
@@ -67,15 +68,15 @@ public class TesteNSKDtree extends MainTask {
         ExampleStream<?> stream = restartStream();
 
         int count = 0;
-        int window_size = 5;
+        int window_size = 1000;
         int maxInstances = maxInstances_;
 
-        maxInstances = 15;
+        // maxInstances = 15;
 
         NSKDtree skdtree = new NSKDtree();
         skdtree.setWindowSize(window_size);
         skdtree.setRebuildPolicies(rebuildPolicy);
-        skdtree.setInstances(stream.getHeader()); // Cria instances vazio
+        skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio
 
         System.out.println("Executando teste de inserção e busca exata...");
 
@@ -88,7 +89,8 @@ public class TesteNSKDtree extends MainTask {
             // allInstances.add(target);
 
              skdtree.update(target);
-             skdtree.printTree();
+             skdtree.validateNodesTree();
+             // skdtree.printTree();
 
             if (skdtree.exactSearch(target) == -1) {
                 System.out.println("Erro: instância não encontrada após inserção!");
@@ -99,9 +101,8 @@ public class TesteNSKDtree extends MainTask {
 
             count++;
         }
-
-        // skdtree.buildTree(allInstances);
-        // skdtree.printTree();
+        System.out.println(skdtree.stats.countRebuild);
+        skdtree.printTree();
 
 
         System.out.println("OK - busca consistente!");
@@ -120,30 +121,39 @@ public class TesteNSKDtree extends MainTask {
         NSKDtree skdtree = new NSKDtree();
         skdtree.setWindowSize(window_size);
         skdtree.setRebuildPolicies(rebuildPolicy);
-        skdtree.setInstances(stream.getHeader()); // Cria instances vazio
+        // Instances data = new Instances(stream.getHeader(), window_size);
+        skdtree.setInstances(new Instances(stream.getHeader(), 1000)); // Cria instances vazio
 
         System.out.println("Executando teste do calculo do vizinho mais proximo...");
+
+        int ultimo_rebuild = 0;
 
         while (stream.hasMoreInstances() && count < maxInstances) {
             Example<?> ex = stream.nextInstance();
             Instance target = (Instance) ex.getData();
 
+            if (skdtree.stats.countRebuild > ultimo_rebuild) {
+                ultimo_rebuild = skdtree.stats.countRebuild;
+                skdtree.printTree();
+            }
+
+
             if (skdtree.getInstances() != null && skdtree.getInstances().size() != 0){
                 Instance result = skdtree.nearestNeighbour(target);
-                skdtree.printPoints();
-                System.out.println(target.value(0) + "," + target.value(1) + "," + -1 + "," + "fora_arvore");
-                System.out.println(result.value(0) + "," + result.value(1) + "," + -1 + "," + "result_knn\n");
+                // skdtree.printTree();
+//                skdtree.printPoints();
+//                System.out.println(target.value(0) + "," + target.value(1) + "," + -1 + "," + "fora_arvore");
+//                System.out.println(result.value(0) + "," + result.value(1) + "," + -1 + "," + "result_knn\n");
             }
 
             skdtree.update(target);
-
             count++;
         }
 
         System.out.println("Quantidade de rebuilds: " + skdtree.stats.countRebuild);
 
         // skdtree.buildTree(allInstances);
-        // skdtree.printTree();
+        skdtree.printTree();
 
 
         System.out.println("OK - kNN retorna resultados!");
@@ -162,7 +172,7 @@ public class TesteNSKDtree extends MainTask {
 
         RebuildPolicy[] policies = new RebuildPolicy[] {
                 // new InstancesPerLeafPolicy(), // Essa politica por algum motivo faz não bater com o MOA, não sei o pq
-                new DeletedRatioPolicy(),
+                // new DeletedRatioPolicy(),
                 new HeightBalancedPolicy(alpha)
                 // new NoRebuild()
         };
@@ -202,8 +212,8 @@ public class TesteNSKDtree extends MainTask {
             }
 
             try {
-                // validateExactSearch(policy);
-                validateKNN(policy);
+                validateExactSearch(policy);
+                // validateKNN(policy);
 
             } catch (Exception e) {
                 System.err.println("Erro na combinação:");
