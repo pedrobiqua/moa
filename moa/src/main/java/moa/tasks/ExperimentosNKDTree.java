@@ -143,7 +143,7 @@ public class ExperimentosNKDTree extends MainTask {
     private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
         try {
             int count = 0;
-            long maxInstances = 500000;
+            long maxInstances = 100000;
             int window_size = 1000;
             NSKDtree skdtree = new NSKDtree();
             skdtree.setWindowSize(window_size);
