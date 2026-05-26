@@ -162,6 +162,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 //            System.out.println("// Antes rebuild");
 //            this.printTree();
             buildTree(m_Window.getInstancesWindow());
+            m_DistanceFunction.setInstances(m_Instances);
             stats.m_numNodes = m_Instances.size();
             stats.countRebuild++;
 //            System.out.println("// log: " + Math.log(stats.m_numNodes) / Math.log(1.0 / 0.6));
@@ -194,6 +195,7 @@ public class NSKDtree extends NearestNeighbourSearch {
         stats.depthInsert = depth;
 
         m_Instances.add(inst);
+        m_DistanceFunction.update(inst);
 
         if (m_Root == null) {
             m_Root = new KDTreeNode();
@@ -329,8 +331,8 @@ public class NSKDtree extends NearestNeighbourSearch {
             m_Window.setInstances(m_Instances);
         }
 
-        m_DistanceFunction.setDontNormalize(true);
-        m_DistanceFunction.setInstances(insts);
+        // m_DistanceFunction.setDontNormalize(true);
+        m_DistanceFunction.setInstances(m_Instances);
     }
 
     public void setRebuildPolicies(RebuildPolicy rebuildPolicies) {
