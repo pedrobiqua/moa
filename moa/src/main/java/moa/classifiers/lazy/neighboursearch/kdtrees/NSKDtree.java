@@ -12,6 +12,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 
     private int m_WindowSize = 1000;
     private Window m_Window;
+    private boolean window_status = true;
 
     /** Tree nodes deleted **/
     protected TreeSet<Integer> m_InstDeleted = new TreeSet<>();
@@ -51,6 +52,7 @@ public class NSKDtree extends NearestNeighbourSearch {
         // Eu acredito que a inserção do jeito que é hoje ajuda a
         // montar uma árvore que gera muitos backtracks
         stats.depthSearch = 0;
+        stats.visitedNodes.clear();
 
         MyHeap heap = new MyHeap(k);
         findNearestNeighbours(target, m_Root, k, heap, 0);
@@ -90,10 +92,14 @@ public class NSKDtree extends NearestNeighbourSearch {
             return;
         }
 
+        // Lembrar de remover quando for coletar o tempo, pois gera mais custo e possivel ruido
+        stats.visitedNodes.add(node.m_NodeNumber); // Não repete os valores
+
         if (depth > stats.depthSearch) {
             stats.depthSearch = depth;
         }
 
+        // Vai até a folha
         KDTreeNode best, other;
         if (target.value(node.m_SplitDim) <= node.m_SplitValue) {
             best = node.m_Left;
@@ -105,6 +111,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 
         findNearestNeighbours(target, best, k, heap, depth + 1);
 
+        // Calcula a distância e se for menor que as demais adiciona na heap
         if (!m_InstDeleted.contains(node.m_NodeNumber)) {
             double distNode;
             if (heap.size() < k) {
@@ -127,11 +134,13 @@ public class NSKDtree extends NearestNeighbourSearch {
             }
         }
 
+        // Calcula a diferença ao quadrado no hiperplano
         double planeDist = m_DistanceFunction.sqDifference(
                 node.m_SplitDim,
                 target.value(node.m_SplitDim),
                 node.m_SplitValue);
 
+        // Se for menor, verifica o outro ramo do node
         if (heap.size() < k || planeDist <= heap.peek().distance) {
             stats.backtrack++;
             findNearestNeighbours(target, other, k, heap, depth + 1);
@@ -146,10 +155,13 @@ public class NSKDtree extends NearestNeighbourSearch {
     @Override
     public void update(Instance ins) throws Exception {
         checkMissing(ins);
+
         ///  Controle da janela
-        int idx_remove = m_Window.update();
-        if (idx_remove != -1)
-            delete(idx_remove);
+        if (window_status) {
+            int idx_remove = m_Window.update();
+            if (idx_remove != -1)
+                delete(idx_remove);
+        }
 
         addInstanceToTree(ins);
         stats.m_numNodes++;
@@ -162,7 +174,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 //            System.out.println("// Antes rebuild");
 //            this.printTree();
             buildTree(m_Window.getInstancesWindow());
-            m_DistanceFunction.setInstances(m_Instances);
+            // m_DistanceFunction.setInstances(m_Instances);
             stats.m_numNodes = m_Instances.size();
             stats.countRebuild++;
 //            System.out.println("// log: " + Math.log(stats.m_numNodes) / Math.log(1.0 / 0.6));
@@ -326,13 +338,15 @@ public class NSKDtree extends NearestNeighbourSearch {
     public void setInstances(Instances insts) throws Exception {
         super.setInstances(insts);
         m_numDim = m_Instances.numAttributes() - 1;
-        if (m_Window == null) { // Cria o ponteiro da janela deslizante
-            m_Window = new Window(this.m_WindowSize);
-            m_Window.setInstances(m_Instances);
+        if (window_status) {
+            if (m_Window == null) { // Cria o ponteiro da janela deslizante
+                m_Window = new Window(this.m_WindowSize);
+                m_Window.setInstances(m_Instances);
+            }
         }
 
-        // m_DistanceFunction.setDontNormalize(true);
-        m_DistanceFunction.setInstances(m_Instances);
+        m_DistanceFunction.setDontNormalize(true);
+        m_DistanceFunction.setInstances(insts);
     }
 
     public void setRebuildPolicies(RebuildPolicy rebuildPolicies) {
@@ -341,6 +355,13 @@ public class NSKDtree extends NearestNeighbourSearch {
 
     public void setWindowSize(int m_WindowSize) {
         this.m_WindowSize = m_WindowSize;
+    }
+
+    /**
+     * Quando falso desliga a janela deslizante
+     * */
+    public void setTurnOffWindow(boolean status) {
+        this.window_status = status;
     }
 
     @Override

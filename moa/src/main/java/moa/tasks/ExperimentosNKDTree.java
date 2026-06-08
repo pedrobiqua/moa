@@ -2,6 +2,7 @@ package moa.tasks;
 
 import com.github.javacliparser.FileOption;
 import com.github.javacliparser.FloatOption;
+import com.github.javacliparser.IntOption;
 import com.github.javacliparser.MultiChoiceOption;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
@@ -36,6 +37,8 @@ public class ExperimentosNKDTree extends MainTask {
 
     public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.2, 1.0);
 
+    public IntOption windowSize = new IntOption("window_size", 'w', "Window size.", 1000, 0, Integer.MAX_VALUE);
+
     public PrintStream configOutputMetrics() throws Exception {
         File outputTempFile = this.outputFileOption.getFile();
         PrintStream outputStream = null;
@@ -60,7 +63,11 @@ public class ExperimentosNKDTree extends MainTask {
     }
 
     public PrintStream timeOutputExp(String dataset_name, RebuildPolicy policy) throws Exception {
-        String parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName();
+        String parameters;
+        if (windowSize.getValue() != 0)
+            parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName();
+        else
+            parameters = "_w0";
         String nameFile = dataset_name + parameters + "_time_exp.csv";
         File outputTempFile = new File(this.outputFileOption.getFile().getParent() + "/" + nameFile);
 
@@ -170,6 +177,61 @@ public class ExperimentosNKDTree extends MainTask {
         }
     }
 
+    private void expInsertSearch(ExampleStream<?> stream, boolean isArff, String datasetName) {
+        try {
+            RebuildPolicy rebuildPolicy = new NoRebuild();
+            // Configurações de output
+            PrintStream output = configOutputMetrics();
+            PrintStream exp_time_output = timeOutputExp(datasetName, rebuildPolicy);
+
+            int count = 0;
+            long maxInstances;
+            if (isArff)
+                maxInstances = Integer.MAX_VALUE;
+            else
+                maxInstances = 500000;
+
+            // Cria a instancia da árvore, e desliga a janela deslizante
+            NSKDtree skdtree = new NSKDtree();
+            skdtree.setRebuildPolicies(rebuildPolicy); // Usando NoRebuild
+            skdtree.setTurnOffWindow(false); // Padrão é true!
+            skdtree.setInstances(new Instances(stream.getHeader(), (int)stream.estimatedRemainingInstances())); // Cria instances vazio
+
+            System.out.println("Executando exp sliding window...");
+
+            /// Cabeçalho
+            output.println(skdtree.stats.getHeader() + ",time_update,time_search");
+            double start_exp_time = System.nanoTime();
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                long time_search = 0;
+                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    long start_search = System.nanoTime();
+                    skdtree.nearestNeighbour(target);
+                    long end_search = System.nanoTime();
+                    time_search = end_search - start_search;
+                }
+
+                long start_update = System.nanoTime();
+                skdtree.update(target);
+                long end_update = System.nanoTime();
+                long time_update = end_update - start_update;
+
+                // Extraindo as metricas coletadas do update e busca e tempo de inserção e busca
+                output.println(skdtree.stats.getMetrics() + "," + time_update + "," + time_search);
+                count++;
+            }
+            double end_exp_time = System.nanoTime();
+            double time_exp = end_exp_time - start_exp_time;
+            exp_time_output.println(time_exp);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     protected Object doMainTask(TaskMonitor monitor, ObjectRepository repository) {
         ///////////////////////////////////////////////////////
@@ -189,6 +251,8 @@ public class ExperimentosNKDTree extends MainTask {
             rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
         else
             rebuildPolicy = new DeletedRatioPolicy(0.3);
+
+        int window_size = windowSize.getValue();
         ///////////////////////////////////////////////////////
 
         boolean isArff = false;
@@ -203,18 +267,32 @@ public class ExperimentosNKDTree extends MainTask {
             datasetName = stream.getClass().getSimpleName();
         }
 
-        System.out.printf("%-30s %-30s %-30s\n",
-                "Dataset", "RebuildPolicy", "Parameters");
+        if (window_size != 0) {
+            System.out.printf("%-30s %-30s %-30s\n",
+                    "Dataset", "RebuildPolicy", "Parameters");
 
-        System.out.printf("%-30s %-30s %-30s\n",
-                datasetName,
-                rebuildPolicy.getClass().getSimpleName(),
-                alphaOption.getValue());
+            System.out.printf("%-30s %-30s %-30s\n",
+                    datasetName,
+                    rebuildPolicy.getClass().getSimpleName(),
+                    alphaOption.getValue());
 
-        for (int i = 0; i <= 3; i++) {
-            warmup(stream, rebuildPolicy, isArff);
+            for (int i = 0; i <= 3; i++) {
+                warmup(stream, rebuildPolicy, isArff);
+            }
+            expSlidingWindow(stream, rebuildPolicy, isArff, datasetName);
+        } else {
+            System.out.printf("%-30s %-30s %-30s\n",
+                    "Dataset", "RebuildPolicy", "Parameters");
+
+            System.out.printf("%-30s %-30s %-30s\n",
+                    datasetName,
+                    "No Rebuild",
+                    window_size);
+            for (int i = 0; i <= 3; i++) {
+                warmup(stream, rebuildPolicy, isArff);
+            }
+            expInsertSearch(stream, isArff, datasetName);
         }
-        expSlidingWindow(stream, rebuildPolicy, isArff, datasetName);
         return null;
     }
 
