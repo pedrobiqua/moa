@@ -357,6 +357,11 @@ public class NSKDtree extends NearestNeighbourSearch {
         this.m_WindowSize = m_WindowSize;
     }
 
+    @Override
+    public DistanceFunction getDistanceFunction() {
+        return this.m_DistanceFunction;
+    }
+
     /**
      * Quando falso desliga a janela deslizante
      * */

@@ -94,13 +94,12 @@ public class ExperimentosNKDTree extends MainTask {
         return null;
     }
 
-    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff, String datasetName) {
+    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size, boolean isArff, String datasetName) {
         try {
             PrintStream output = configOutputMetrics();
             PrintStream exp_time_output = timeOutputExp(datasetName, rebuildPolicy);
 
             int count = 0;
-            int window_size = 1000;
             long maxInstances;
             if (isArff)
                 maxInstances = Integer.MAX_VALUE;
@@ -197,7 +196,7 @@ public class ExperimentosNKDTree extends MainTask {
             skdtree.setTurnOffWindow(false); // Padrão é true!
             skdtree.setInstances(new Instances(stream.getHeader(), (int)stream.estimatedRemainingInstances())); // Cria instances vazio
 
-            System.out.println("Executando exp sliding window...");
+            System.out.println("Executando exp insert search...");
 
             /// Cabeçalho
             output.println(skdtree.stats.getHeader() + ",time_update,time_search");
@@ -268,18 +267,19 @@ public class ExperimentosNKDTree extends MainTask {
         }
 
         if (window_size != 0) {
-            System.out.printf("%-30s %-30s %-30s\n",
-                    "Dataset", "RebuildPolicy", "Parameters");
+            System.out.printf("%-30s %-30s %-30s %-30s\n",
+                    "Dataset", "RebuildPolicy", "Parameters", "Window Size");
 
-            System.out.printf("%-30s %-30s %-30s\n",
+            System.out.printf("%-30s %-30s %-30s %-30s\n",
                     datasetName,
                     rebuildPolicy.getClass().getSimpleName(),
-                    alphaOption.getValue());
+                    alphaOption.getValue(),
+                    window_size);
 
             for (int i = 0; i <= 3; i++) {
                 warmup(stream, rebuildPolicy, isArff);
             }
-            expSlidingWindow(stream, rebuildPolicy, isArff, datasetName);
+            expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
         } else {
             System.out.printf("%-30s %-30s %-30s\n",
                     "Dataset", "RebuildPolicy", "Parameters");
