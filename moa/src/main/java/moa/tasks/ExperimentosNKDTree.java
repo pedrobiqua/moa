@@ -65,7 +65,7 @@ public class ExperimentosNKDTree extends MainTask {
     public PrintStream timeOutputExp(String dataset_name, RebuildPolicy policy) throws Exception {
         String parameters;
         if (windowSize.getValue() != 0)
-            parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName();
+            parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName() + "_w" + windowSize.getValue();
         else
             parameters = "_w0";
         String nameFile = dataset_name + parameters + "_time_exp.csv";
