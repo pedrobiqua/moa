@@ -355,6 +355,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 
     public void setWindowSize(int m_WindowSize) {
         this.m_WindowSize = m_WindowSize;
+        stats.window_size = m_WindowSize;
     }
 
     @Override

@@ -29,10 +29,12 @@ public class ExperimentosNKDTree extends MainTask {
 
     public MultiChoiceOption policyOption = new MultiChoiceOption(
             "policy", 'p', "Method rebuild tree", new String[] {
-                    "DeletedRatioPolicy", "HeightBalancedPolicy", "NoRebuild" },
+                    "DeletedRatioPolicy", "HeightBalancedPolicy", "SquareRoot", "Log", "LogRatio" },
             new String[] { "Deleted Ratio 30%. ",
                     "Desbalanceamento da árvore.",
-                    "Sem build"
+                    "Raiz Quadrada",
+                    "Log",
+                    "Razao do Log"
             }, 0);
 
     public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.2, 1.0);
@@ -146,11 +148,10 @@ public class ExperimentosNKDTree extends MainTask {
         }
     }
 
-    private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, boolean isArff) {
+    private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size) {
         try {
             int count = 0;
             long maxInstances = 100000;
-            int window_size = 1000;
             NSKDtree skdtree = new NSKDtree();
             skdtree.setWindowSize(window_size);
             skdtree.setRebuildPolicies(rebuildPolicy);
@@ -248,6 +249,13 @@ public class ExperimentosNKDTree extends MainTask {
             rebuildPolicy = new DeletedRatioPolicy(alphaOption.getValue());
         else if (policyChosenIndex == 1)
             rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
+        else if (policyChosenIndex == 2) // Usando o tamanho da janela como base
+            rebuildPolicy = new SquareRootPolicy();
+        else if (policyChosenIndex == 3)
+            rebuildPolicy = new LogPolicy();
+        else if (policyChosenIndex == 4) {
+            rebuildPolicy = new LogRatioPolicy();
+        }
         else
             rebuildPolicy = new DeletedRatioPolicy(0.3);
 
@@ -277,7 +285,7 @@ public class ExperimentosNKDTree extends MainTask {
                     window_size);
 
             for (int i = 0; i <= 3; i++) {
-                warmup(stream, rebuildPolicy, isArff);
+                warmup(stream, rebuildPolicy, window_size);
             }
             expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
         } else {
@@ -289,7 +297,7 @@ public class ExperimentosNKDTree extends MainTask {
                     "No Rebuild",
                     window_size);
             for (int i = 0; i <= 3; i++) {
-                warmup(stream, rebuildPolicy, isArff);
+                warmup(stream, rebuildPolicy, window_size);
             }
             expInsertSearch(stream, isArff, datasetName);
         }

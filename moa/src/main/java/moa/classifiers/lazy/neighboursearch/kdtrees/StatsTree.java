@@ -3,6 +3,9 @@ package moa.classifiers.lazy.neighboursearch.kdtrees;
 import java.util.TreeSet;
 
 public class StatsTree {
+    /** Dados extras **/
+    public int window_size;
+
     /** Dados da árvore **/
     public int m_numNodes, m_heightTree, m_numNodesDeleted;
 
