@@ -36,7 +36,6 @@ public class NSKDtree extends NearestNeighbourSearch {
     /** Árvore root node **/
     private KDTreeNode m_Root;
 
-
     @Override
     public Instance nearestNeighbour(Instance target) throws Exception {
         return (kNearestNeighbours(target, 1)).instance(0);
@@ -93,7 +92,7 @@ public class NSKDtree extends NearestNeighbourSearch {
         }
 
         // Lembrar de remover quando for coletar o tempo, pois gera mais custo e possivel ruido
-        stats.visitedNodes.add(node.m_NodeNumber); // Não repete os valores
+        // stats.visitedNodes.add(node.m_NodeNumber); // Não repete os valores
 
         if (depth > stats.depthSearch) {
             stats.depthSearch = depth;
@@ -163,25 +162,18 @@ public class NSKDtree extends NearestNeighbourSearch {
                 delete(idx_remove);
         }
 
+        // Faço a inserção
         addInstanceToTree(ins);
         stats.m_numNodes++;
+        updateSubTreeSizes(); // Atualiza os tamanhos das subárvores da esquerda e da direita do root
 
+        // Verificação da politica de rebuild
         if (m_RebuildPolicies.checkRebuild(stats)) {
-//            System.out.println("// Reconstruindo a árvore!!");
-//            System.out.println("// log: " + Math.log(stats.m_numNodes) / Math.log(1.0 / 0.6));
-//            System.out.println("// num_nodes: " + stats.m_numNodes);
-//            System.out.println("// height: " + stats.m_heightTree);
-//            System.out.println("// Antes rebuild");
-//            this.printTree();
             buildTree(m_Window.getInstancesWindow());
             // m_DistanceFunction.setInstances(m_Instances);
             stats.m_numNodes = m_Instances.size();
             stats.countRebuild++;
-//            System.out.println("// log: " + Math.log(stats.m_numNodes) / Math.log(1.0 / 0.6));
-//            System.out.println("// num_nodes: " + stats.m_numNodes);
-//            System.out.println("// height: " + stats.m_heightTree);
-//            System.out.println("// Depois rebuild");
-//            this.printTree();
+            updateSubTreeSizes();
         }
 
     }
@@ -190,10 +182,10 @@ public class NSKDtree extends NearestNeighbourSearch {
         int depth = 0;
         KDTreeNode p = m_Root;
         KDTreeNode prev = null;
-        // double[] newInstance = inst.toDoubleArray();
 
         while (p != null) {
             prev = p;
+            p.m_TreeSize++;
             int axis = depth % m_numDim;
             if (inst.value(axis) <= m_Instances.instance(p.m_NodeNumber).value(axis)) {
                 p = p.m_Left;
@@ -216,6 +208,7 @@ public class NSKDtree extends NearestNeighbourSearch {
             m_Root.m_Right = null;
             m_Root.m_SplitDim = 0;
             m_Root.m_SplitValue = inst.value(0);
+            m_Root.m_TreeSize = 1;
             return;
         }
 
@@ -228,12 +221,14 @@ public class NSKDtree extends NearestNeighbourSearch {
             prev.m_Left.m_NodeNumber = m_Instances.numInstances() - 1;
             prev.m_Left.m_SplitDim = depth % m_numDim;
             prev.m_Left.m_SplitValue = inst.value(prev.m_Left.m_SplitDim);
+            prev.m_Left.m_TreeSize = 1;
         }
         else {
             prev.m_Right = new KDTreeNode();
             prev.m_Right.m_NodeNumber = m_Instances.numInstances() - 1;
             prev.m_Right.m_SplitDim = depth % m_numDim;
             prev.m_Right.m_SplitValue = inst.value(prev.m_Right.m_SplitDim);
+            prev.m_Right.m_TreeSize = 1;
         }
 
         if (stats.m_heightTree < depth) {
@@ -292,6 +287,9 @@ public class NSKDtree extends NearestNeighbourSearch {
         node.m_SplitDim = splitDim;
         node.m_SplitValue = medianValue;
         node.m_NodeNumber = medianIdx;
+
+        // Tamanho da árvore/subárvore
+        node.m_TreeSize = insts.length;
 
         // Separa entre esquerda e direita
         int countLeft = 0;
@@ -436,6 +434,24 @@ public class NSKDtree extends NearestNeighbourSearch {
 
         preorder(node.m_Left);
         preorder(node.m_Right);
+    }
+
+    private void updateSubTreeSizes() {
+        if (m_Root == null) {
+            stats.m_leftTreeSize = 0;
+            stats.m_rightTreeSize = 0;
+            return;
+        }
+
+        stats.m_leftTreeSize =
+                m_Root.m_Left != null
+                        ? m_Root.m_Left.m_TreeSize
+                        : 0;
+
+        stats.m_rightTreeSize =
+                m_Root.m_Right != null
+                        ? m_Root.m_Right.m_TreeSize
+                        : 0;
     }
 
     public void validateNodesTree() {

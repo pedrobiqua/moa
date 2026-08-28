@@ -15,7 +15,6 @@ public class Window {
     }
 
     public void setInstances(Instances instances) {
-        // Faço isso apenas uma vez e nunca mais
         this.m_Instances = instances;
         this.first = 0;
         this.last = instances.numInstances();

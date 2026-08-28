@@ -74,6 +74,11 @@ public class KDTreeNode
   public int m_SplitDim;
 
   /**
+   * attribute to get tree size.
+   */
+  public int m_TreeSize;
+
+  /**
    * lowest and highest value and width (= high - low) for each
    * dimension.
    */
@@ -98,6 +103,8 @@ public class KDTreeNode
    * contains.
    */
   public int m_End = 0;
+
+  public int m_DepthNode = 0;
 
   /**
    * Constructor.

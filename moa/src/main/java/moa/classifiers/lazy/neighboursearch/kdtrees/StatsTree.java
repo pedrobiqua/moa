@@ -9,6 +9,10 @@ public class StatsTree {
     /** Dados da árvore **/
     public int m_numNodes, m_heightTree, m_numNodesDeleted;
 
+    /** Dados reconstrução **/
+    public int m_leftTreeSize;
+    public int m_rightTreeSize;
+
     /** Metricas reiniciaveis coletadas **/
     public int depthInsert, depthSearch, backtrack;
 
@@ -21,18 +25,29 @@ public class StatsTree {
     public double timeInsert, timeRebuild, timeSearch;
 
     public String getHeader() {
-        return "m_numNodes,m_heightTree,m_numNodesDeleted,depthInsert,depthSearch,visitedNodes,backtrack,countRebuild";
+        return "m_numNodes,m_heightTree,m_numNodesDeleted,m_leftTreeSize,m_rightTreeSize,depthInsert,depthSearch,visitedNodes,backtrack,countRebuild";
     }
 
     public String getMetrics() {
         return m_numNodes + ","
                 + m_heightTree + ","
                 + m_numNodesDeleted + ","
+                + m_leftTreeSize + ","
+                + m_rightTreeSize + ","
                 + depthInsert + ","
                 + depthSearch + ","
                 + visitedNodes.size() + ","
                 + backtrack + ","
                 + countRebuild;
+    }
+
+    public int getChildTreeSize() {
+        if (m_leftTreeSize != 0)
+            return m_leftTreeSize;
+        else if (m_rightTreeSize != 0)
+            return m_rightTreeSize;
+        else
+            return 0;
     }
 
 }
