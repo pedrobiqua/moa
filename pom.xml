@@ -285,7 +285,7 @@
         </plugin>
 
         <!-- generate documentation -->
-        <!-- <plugin>
+        <plugin>
           <groupId>com.github.fracpete</groupId>
           <artifactId>latex-maven-plugin</artifactId>
           <version>1.4.4</version>
@@ -300,7 +300,7 @@
           <configuration>
             <forceBuild>true</forceBuild>
           </configuration>
-        </plugin> -->
+        </plugin>
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
