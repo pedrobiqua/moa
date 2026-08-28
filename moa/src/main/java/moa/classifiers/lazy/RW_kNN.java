@@ -90,7 +90,7 @@ public class RW_kNN extends AbstractClassifier implements MultiClassClassifier {
     }
 
     public void trainOnInstanceImpl(Instance inst) {
-        Random r = new Random();
+        // Random r = new Random();
         if (inst.classValue() > (double)this.C)
             this.C = (int)inst.classValue();
 
@@ -99,7 +99,7 @@ public class RW_kNN extends AbstractClassifier implements MultiClassClassifier {
             this.reservoir = new Instances(inst.dataset());
         }
         if (this.limitOptionReservoir.getValue() <= this.reservoir.numInstances()) {
-            int replaceIndex = r.nextInt(this.limitOptionReservoir.getValue() - 1);
+            int replaceIndex = this.classifierRandom.nextInt(this.limitOptionReservoir.getValue() - 1);
             this.reservoir.set(replaceIndex, inst);
         } else
             this.reservoir.add(inst);
@@ -155,6 +155,6 @@ public class RW_kNN extends AbstractClassifier implements MultiClassClassifier {
     }
 
     public boolean isRandomizable() {
-        return false;
+        return true;
     }
 }
