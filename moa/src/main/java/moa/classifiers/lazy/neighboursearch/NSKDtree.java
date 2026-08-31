@@ -1,22 +1,70 @@
-package moa.classifiers.lazy.neighboursearch.kdtrees;
+package moa.classifiers.lazy.neighboursearch;
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
-import moa.classifiers.lazy.neighboursearch.*;
+
+import moa.classifiers.lazy.neighboursearch.kdtrees.KDTreeNode;
+import moa.tasks.EvaluateNKDTree;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.TreeSet;
 
 public class NSKDtree extends NearestNeighbourSearch {
 
-    /// Atributos da classe
-    private RebuildPolicy m_RebuildPolicies;
+    public class MetricsTree {
+        long treeSize = 0;
+        long leftTreeSize = 0;
+        long rightTreeSize = 0;
+        long heightTree = 0;
+        long numDeletedNodes = 0;
 
-    private int m_WindowSize = 1000;
-    private Window m_Window;
-    private boolean window_status = true;
+        public String toString() {
+            return treeSize + "," + leftTreeSize + "," + rightTreeSize + "," + heightTree + "," + numDeletedNodes;
+        }
 
-    /** Tree nodes deleted **/
+        public Map<String, Object> getMetrics() {
+            Map<String, Object> metrics = new LinkedHashMap<>();
+            metrics.put("tree_size", treeSize);
+            metrics.put("left_tree_Size", leftTreeSize);
+            metrics.put("right_tree_size", rightTreeSize);
+            metrics.put("height_tree", heightTree);
+            metrics.put("num_deleted_nodes", numDeletedNodes);
+            return metrics;
+        }
+
+        public long getChildTreeSize() {
+            if (leftTreeSize != 0)
+                return leftTreeSize;
+            else if (rightTreeSize != 0)
+                return rightTreeSize;
+            else
+                return 0;
+        }
+
+        public long getTreeSize() {
+            return treeSize;
+        }
+
+        public long getHeightTree() {
+            return heightTree;
+        }
+
+        public long getNumDeletedNodes() {
+            return numDeletedNodes;
+        }
+    }
+
+    /** Metrics collected from the tree. **/
+    public MetricsTree metricsTree = new MetricsTree();
+
+    /** Search metrics **/
+    private EvaluateNKDTree.SearchMetrics searchMetrics = null;
+
+    /** Identifiers of tree nodes marked as deleted. **/
     protected TreeSet<Integer> m_InstDeleted = new TreeSet<>();
 
+    /** Distance function used for nearest-neighbor searches. **/
     protected DistanceFunction m_DistanceFunction = new EuclideanDistance();
 
     private double[] m_DistanceList;
@@ -26,14 +74,13 @@ public class NSKDtree extends NearestNeighbourSearch {
      * to the splits. the nodes of the KDTree just hold their start and end
      * indices
      */
-    protected int[] m_InstList;
+    // protected int[] m_InstList;
 
-    /** Atributos da árvore **/
+
+    /** Number of dimensions in the data. **/
     private int m_numDim;
-    // private int m_numNodes, m_numDim, m_heightTree;
-    public StatsTree stats = new StatsTree();
 
-    /** Árvore root node **/
+    /** Root node of the k-d tree. **/
     private KDTreeNode m_Root;
 
     @Override
@@ -43,15 +90,14 @@ public class NSKDtree extends NearestNeighbourSearch {
 
     @Override
     public Instances kNearestNeighbours(Instance target, int k) throws Exception {
-        if (stats.m_numNodes == 0) {
+        if (metricsTree.treeSize == 0) {
             throw new Exception("The K-d tree was not initialized. Please use the method setInstances(Instances)");
         }
 
-        stats.backtrack = 0; // Reinicia a variavel que conta o número de backtracks
-        // Eu acredito que a inserção do jeito que é hoje ajuda a
-        // montar uma árvore que gera muitos backtracks
-        stats.depthSearch = 0;
-        stats.visitedNodes.clear();
+        // Reset metrics
+        if (searchMetrics != null) {
+            searchMetrics.reset();
+        }
 
         MyHeap heap = new MyHeap(k);
         findNearestNeighbours(target, m_Root, k, heap, 0);
@@ -91,14 +137,11 @@ public class NSKDtree extends NearestNeighbourSearch {
             return;
         }
 
-        // Lembrar de remover quando for coletar o tempo, pois gera mais custo e possivel ruido
-        // stats.visitedNodes.add(node.m_NodeNumber); // Não repete os valores
-
-        if (depth > stats.depthSearch) {
-            stats.depthSearch = depth;
+        /** Collect node visited **/
+        if (searchMetrics != null) {
+            searchMetrics.nodeVisited();
         }
 
-        // Vai até a folha
         KDTreeNode best, other;
         if (target.value(node.m_SplitDim) <= node.m_SplitValue) {
             best = node.m_Left;
@@ -110,7 +153,7 @@ public class NSKDtree extends NearestNeighbourSearch {
 
         findNearestNeighbours(target, best, k, heap, depth + 1);
 
-        // Calcula a distância e se for menor que as demais adiciona na heap
+        // Computes the distance and adds the node to the heap if it is closer than the current neighbors.
         if (!m_InstDeleted.contains(node.m_NodeNumber)) {
             double distNode;
             if (heap.size() < k) {
@@ -133,49 +176,34 @@ public class NSKDtree extends NearestNeighbourSearch {
             }
         }
 
-        // Calcula a diferença ao quadrado no hiperplano
+        // Computes the squared distance to the splitting hyperplane.
         double planeDist = m_DistanceFunction.sqDifference(
                 node.m_SplitDim,
                 target.value(node.m_SplitDim),
                 node.m_SplitValue);
 
-        // Se for menor, verifica o outro ramo do node
+        // If the distance is within the search radius, checks the other subtree.
         if (heap.size() < k || planeDist <= heap.peek().distance) {
-            stats.backtrack++;
+//          backtrack++;
             findNearestNeighbours(target, other, k, heap, depth + 1);
         }
     }
 
     @Override
     public double[] getDistances() throws Exception {
-        return new double[0];
+        if (m_Instances == null || m_DistanceList == null)
+            throw new Exception("The tree has not been supplied with a set of "
+                    + "instances or getDistances() has been called "
+                    + "before calling kNearestNeighbours().");
+        return m_DistanceList;
     }
 
     @Override
     public void update(Instance ins) throws Exception {
         checkMissing(ins);
-
-        ///  Controle da janela
-        if (window_status) {
-            int idx_remove = m_Window.update();
-            if (idx_remove != -1)
-                delete(idx_remove);
-        }
-
-        // Faço a inserção
         addInstanceToTree(ins);
-        stats.m_numNodes++;
-        updateSubTreeSizes(); // Atualiza os tamanhos das subárvores da esquerda e da direita do root
-
-        // Verificação da politica de rebuild
-        if (m_RebuildPolicies.checkRebuild(stats)) {
-            buildTree(m_Window.getInstancesWindow());
-            // m_DistanceFunction.setInstances(m_Instances);
-            stats.m_numNodes = m_Instances.size();
-            stats.countRebuild++;
-            updateSubTreeSizes();
-        }
-
+        metricsTree.treeSize++;
+        updateSubTreeSizes();
     }
 
     private void addInstanceToTree(Instance inst) {
@@ -196,7 +224,7 @@ public class NSKDtree extends NearestNeighbourSearch {
             depth++;
         }
 
-        stats.depthInsert = depth;
+//        stats.depthInsert = depth;
 
         m_Instances.add(inst);
         m_DistanceFunction.update(inst);
@@ -212,7 +240,6 @@ public class NSKDtree extends NearestNeighbourSearch {
             return;
         }
 
-        // Profundidade de prev
         int axis = (depth - 1) % this.m_numDim;
 
         assert prev != null;
@@ -231,46 +258,27 @@ public class NSKDtree extends NearestNeighbourSearch {
             prev.m_Right.m_TreeSize = 1;
         }
 
-        if (stats.m_heightTree < depth) {
-            stats.m_heightTree = depth;
+        if (metricsTree.heightTree < depth) {
+            metricsTree.heightTree = depth;
         }
     }
 
-    private void delete(int idx) {
+    public void delete(int idx) {
         m_InstDeleted.add(idx);
-        stats.m_numNodesDeleted = m_InstDeleted.size();
-    }
-
-    public int exactSearch(Instance inst) {
-        return search(m_Root, inst);
-    }
-
-    private int search(KDTreeNode node, Instance inst) {
-        if (node == null)
-            return -1;
-
-        if (instanceIsEqual(m_Instances.instance(node.m_NodeNumber), inst))
-            return node.m_NodeNumber;
-
-        double[] d_inst = inst.toDoubleArray();
-        if (d_inst[node.m_SplitDim] <= node.m_SplitValue)
-            return search(node.m_Left, inst);
-        else
-            return search(node.m_Right, inst);
+        metricsTree.numDeletedNodes = m_InstDeleted.size();
     }
 
     public void buildTree(Instances insts) {
         m_Instances = insts;
-        m_Window.setInstances(m_Instances);
-        // Monta a árvore inteira
         int[] instList = new int[insts.size()];
         for (int idx = 0; idx < instList.length; idx++) {
             instList[idx] = idx;
         }
-        m_InstDeleted.clear();
 
-        stats.m_heightTree = 0;
+        m_InstDeleted.clear();
+        metricsTree.heightTree = 0;
         m_Root = splitInstances(instList, 0, 0, instList.length -1);
+        updateMetrics();
     }
 
     private KDTreeNode splitInstances(int[] insts, int depth, int left, int right) {
@@ -319,53 +327,37 @@ public class NSKDtree extends NearestNeighbourSearch {
             }
         }
 
-        if (stats.m_heightTree < depth) {
-            stats.m_heightTree = depth;
+        if (metricsTree.heightTree < depth) {
+            metricsTree.heightTree = depth;
         }
 
-        // Recursão left e right passando as novas instancias
         node.m_Left = splitInstances(left_insts, depth + 1, 0, left_insts.length - 1);
         node.m_Right = splitInstances(right_insts, depth + 1,0, right_insts.length - 1);
 
         return node;
     }
 
-    ///  Geters and Setters
+    ///  Getters and Setters
 
     @Override
     public void setInstances(Instances insts) throws Exception {
         super.setInstances(insts);
         m_numDim = m_Instances.numAttributes() - 1;
-        if (window_status) {
-            if (m_Window == null) { // Cria o ponteiro da janela deslizante
-                m_Window = new Window(this.m_WindowSize);
-                m_Window.setInstances(m_Instances);
-            }
-        }
-
         m_DistanceFunction.setDontNormalize(true);
         m_DistanceFunction.setInstances(insts);
     }
 
-    public void setRebuildPolicies(RebuildPolicy rebuildPolicies) {
-        this.m_RebuildPolicies = rebuildPolicies;
+    public Instances getInstances() {
+        return super.getInstances();
     }
 
-    public void setWindowSize(int m_WindowSize) {
-        this.m_WindowSize = m_WindowSize;
-        stats.window_size = m_WindowSize;
+    public int getNumInstances() {
+        return super.getInstances().size();
     }
 
     @Override
     public DistanceFunction getDistanceFunction() {
         return this.m_DistanceFunction;
-    }
-
-    /**
-     * Quando falso desliga a janela deslizante
-     * */
-    public void setTurnOffWindow(boolean status) {
-        this.window_status = status;
     }
 
     @Override
@@ -375,17 +367,8 @@ public class NSKDtree extends NearestNeighbourSearch {
         super.setDistanceFunction(df);
     }
 
-    /// Funções auxiliares
-    private boolean instanceIsEqual(Instance instance1, Instance instance2) {
-        if (instance1.numValues() != instance2.numValues())
-            return false;
-
-        for (int i = 0; i < instance1.toDoubleArray().length; i++) {
-            if (instance1.value(i) != instance2.value(i))
-                return false;
-        }
-
-        return true;
+    public void setSearchMetrics(EvaluateNKDTree.SearchMetrics searchMetrics) {
+        this.searchMetrics = searchMetrics;
     }
 
     /**
@@ -408,123 +391,28 @@ public class NSKDtree extends NearestNeighbourSearch {
         }
     }
 
-    public void printTree() {
-        System.out.println("digraph KDTree {");
-        System.out.println("node [shape=circle];");
-        inorder(m_Root);
-        System.out.println("}\n");
-    }
-
-    public void printPoints() {
-        System.out.println("x,y,num,status");
-        preorder(m_Root);
-
-    }
-
-    private void preorder(KDTreeNode node) {
-        if (node == null) {
-            return;
-        }
-
-        Instance node_instance = m_Instances.instance(node.m_NodeNumber);
-        System.out.println(node_instance.value(0) + ","
-                + node_instance.value(1) + ","
-                + node.m_NodeNumber + ","
-                + (m_InstDeleted.contains(node.m_NodeNumber) ? "apagado" : "ok"));
-
-        preorder(node.m_Left);
-        preorder(node.m_Right);
+    private void updateMetrics() {
+        metricsTree.treeSize = m_Instances.size();
+        metricsTree.numDeletedNodes = 0;
+        updateSubTreeSizes();
     }
 
     private void updateSubTreeSizes() {
         if (m_Root == null) {
-            stats.m_leftTreeSize = 0;
-            stats.m_rightTreeSize = 0;
+            metricsTree.leftTreeSize = 0;
+            metricsTree.rightTreeSize = 0;
             return;
         }
 
-        stats.m_leftTreeSize =
+        metricsTree.leftTreeSize =
                 m_Root.m_Left != null
                         ? m_Root.m_Left.m_TreeSize
                         : 0;
 
-        stats.m_rightTreeSize =
+        metricsTree.rightTreeSize =
                 m_Root.m_Right != null
                         ? m_Root.m_Right.m_TreeSize
                         : 0;
-    }
-
-    public void validateNodesTree() {
-        TreeSet<Integer> used_numbers = new TreeSet<>();
-        validate(m_Root, used_numbers);
-    }
-
-    private void validate(KDTreeNode node, TreeSet<Integer> used_numbers) {
-        if (node == null) {
-            return;
-        }
-
-        validate(node.m_Left, used_numbers);
-        int number_node = node.m_NodeNumber;
-        if (used_numbers.contains(number_node)) {
-            System.out.println("Número de nodes duplicados!!");
-        }
-        used_numbers.add(number_node);
-        validate(node.m_Right, used_numbers);
-    }
-
-
-    private void inorder(KDTreeNode node) {
-        if (node == null) {
-            return;
-        }
-
-        inorder(node.m_Left);
-
-        // imprime o nó | mostra em sublinhado o valor usado no corte
-        String nodeId = Integer.toString(node.m_NodeNumber);
-        StringBuilder label = new StringBuilder("<(");
-        if (m_numDim == 2) {
-            for (int i = 0; i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 1; i++) {
-                if (i < m_Instances.instance(node.m_NodeNumber).numAttributes() - 2) {
-                    if (i != node.m_SplitDim)
-                        label.append(m_Instances.instance(node.m_NodeNumber).value(i)).append(" ");
-                    else
-                        label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>").append(" ");
-                } else {
-                    if (i != node.m_SplitDim)
-                        label.append(m_Instances.instance(node.m_NodeNumber).value(i));
-                    else
-                        label.append("<u>").append(m_Instances.instance(node.m_NodeNumber).value(i)).append("</u>");
-                }
-            }
-        } else {
-            label.append(node.m_SplitValue);
-        }
-        label.append(")>");
-
-        if ( m_InstDeleted.contains(node.m_NodeNumber)) {
-            System.out.println(
-                    nodeId + " [label=" + label + ", style=filled, fillcolor=red];");
-        } else {
-            System.out.println(
-                    nodeId + " [label=" + label + "];");
-        }
-
-        // aresta esquerda
-        if (node.m_Left != null) {
-            System.out.println(
-                    nodeId + " -> " + Integer.toString(node.m_Left.m_NodeNumber) + " [label=\"L\"];");
-        }
-
-        // aresta direita
-        if (node.m_Right != null) {
-            System.out.println(
-                    nodeId + " -> " + Integer.toString(node.m_Right.m_NodeNumber) + " [label=\"R\"];");
-        }
-
-        // visita direita
-        inorder(node.m_Right);
     }
 
     /**

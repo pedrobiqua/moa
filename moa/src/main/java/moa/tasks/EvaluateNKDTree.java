@@ -1,12 +1,13 @@
 package moa.tasks;
 
-import com.github.javacliparser.FileOption;
-import com.github.javacliparser.FloatOption;
-import com.github.javacliparser.IntOption;
-import com.github.javacliparser.MultiChoiceOption;
+import com.github.javacliparser.*;
+
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
-import moa.classifiers.lazy.neighboursearch.kdtrees.*;
+
+import moa.classifiers.lazy.neighboursearch.NSKDtree;
+import moa.classifiers.lazy.neighboursearch.Window;
+import moa.classifiers.lazy.neighboursearch.rebuildpolicies.*;
 import moa.core.Example;
 import moa.core.ObjectRepository;
 import moa.options.AbstractOptionHandler;
@@ -18,50 +19,124 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-public class ExperimentosNKDTree extends MainTask {
+/**
+ * Task for evaluating a naive k-d tree in a streaming environment.
+ *
+ *
+ * @author Anonymous
+ */
+public class EvaluateNKDTree extends MainTask {
 
-    public FileOption outputFileOption = new FileOption("outputFile", 'o',
-            "File to append output temp train and test to.", null, ".txt", true);
+    public FileOption outputFileOption = new FileOption(
+            "outputFile", 'o',
+            "File to append output temp train and test to.",
+            null, ".txt", true);
 
-    public ClassOption streamOption = new ClassOption("stream", 's',
-            "Stream to evaluate on.", ExampleStream.class,
+    public ClassOption streamOption = new ClassOption(
+            "stream", 's',
+            "Stream to evaluate on.",
+            ExampleStream.class,
             "generators.RandomTreeGenerator");
 
     public MultiChoiceOption policyOption = new MultiChoiceOption(
-            "policy", 'p', "Method rebuild tree", new String[] {
-                    "DeletedRatioPolicy", "HeightBalancedPolicy", "SquareRoot", "Log", "LogRatio" },
-            new String[] { "Deleted Ratio 30%. ",
-                    "Desbalanceamento da árvore.",
-                    "Raiz Quadrada",
+            "policy", 'p',
+            "Policy used to determine when the tree should be rebuilt.",
+            new String[] {
+                    "DeletedRatioPolicy",
+                    "HeightBalancedPolicy",
+                    "SquareRoot",
                     "Log",
-                    "Razao do Log"
-            }, 0);
+                    "LogRatio"
+            },
+            new String[] {
+                    "Deleted Ratio",
+                    "Alpha Height",
+                    "Square Root",
+                    "Logarithmic",
+                    "Logarithmic Ratio"
+            },
+            0);
 
-    public FloatOption alphaOption = new FloatOption("alpha", 'a', "alpha value.", 0.6, 0.2, 1.0);
+    public FloatOption alphaOption = new FloatOption(
+            "param", 'a',
+            "Parameter used by the height-based rebuild policy and deleted ratio.",
+            0.6, 0.2, 1.0);
 
-    public IntOption windowSize = new IntOption("window_size", 'w', "Window size.", 1000, 0, Integer.MAX_VALUE);
+    public IntOption windowSize = new IntOption(
+            "window_size", 'w',
+            "Number of instances maintained in the sliding window.",
+            1000, 0, Integer.MAX_VALUE);
 
-    class Result {
-        String metrics;
-        long timeUpdate;
-        long timeSearch;
+    public FlagOption collectSearchMetricsOption = new FlagOption(
+            "collect_search_metrics", 'm',
+            "Enable the collection of search metrics.");
 
-        Result(String metrics, long timeUpdate, long timeSearch) {
-            this.metrics = metrics;
-            this.timeUpdate = timeUpdate;
-            this.timeSearch = timeSearch;
+
+    public interface SearchMetrics {
+        void nodeVisited();
+        void reset();
+    }
+
+    public class VisitedNodesMetrics implements SearchMetrics {
+
+        private long visitedNodes = 0;
+
+        @Override
+        public void nodeVisited() {
+            visitedNodes++;
+        }
+
+        @Override
+        public void reset() {
+            visitedNodes = 0;
+        }
+
+        public long getVisitedNodes() {
+            return visitedNodes;
+        }
+    }
+
+    public class Result {
+
+        private final Map<String, Object> values = new LinkedHashMap<>();
+
+        public void add(String name, Object value) {
+            values.put(name, value);
+        }
+
+        public void addMetrics(Map<String, Object> metrics) {
+            this.values.putAll(metrics);
+        }
+
+        public Map<String, Object> getValues() {
+            return values;
+        }
+
+        public String getHeader() {
+            return String.join(",", values.keySet());
+        }
+
+        @Override
+        public String toString() {
+            return values.values().stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(","));
         }
     }
 
     private void saveResults(PrintStream output, List<Result> results) {
-        for (Result r : results) {
-            output.println(
-                    r.metrics + "," +
-                            r.timeUpdate + "," +
-                            r.timeSearch
-            );
+        if (!results.isEmpty()) {
+            System.out.println("Saving the results...");
+            output.println(results.get(0).getHeader());
+
+            for (Result result : results) {
+                output.println(result);
+            }
         }
     }
 
@@ -122,7 +197,7 @@ public class ExperimentosNKDTree extends MainTask {
 
     private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size, boolean isArff, String datasetName) {
 
-        // Configuração de I/O
+        // Create output files
         PrintStream output;
         PrintStream exp_time_output;
         try {
@@ -133,28 +208,25 @@ public class ExperimentosNKDTree extends MainTask {
             return;
         }
 
-        // Configuração da árvore
         int count = 0;
-        long maxInstances;
-        if (isArff)
-            maxInstances = Integer.MAX_VALUE;
-        else
-            maxInstances = 500000;
+        long maxInstances = maxInstances(isArff);
+
         NSKDtree skdtree = new NSKDtree();
+        VisitedNodesMetrics visitedMetrics = null;
         try {
-            skdtree.setWindowSize(window_size);
-            skdtree.setRebuildPolicies(rebuildPolicy);
-            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size));
+            if (collectSearchMetricsOption.isSet()) {
+                visitedMetrics = new VisitedNodesMetrics();
+                skdtree.setSearchMetrics(visitedMetrics);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return;
         }
-
-        // Onde os resultados são armazenados
         List<Result> results = new ArrayList<Result>();
-        /// Cabeçalho do arquivo
-        output.println(skdtree.stats.getHeader() + ",time_update,time_search");
+        long countRebuild = 0;
 
+        Window window = new Window(window_size);
         try {
             System.out.println("Executando exp sliding window...");
             double start_exp_time = System.nanoTime();
@@ -170,31 +242,50 @@ public class ExperimentosNKDTree extends MainTask {
                     time_search = end_search - start_search;
                 }
 
+                // Slide window
+                int idx_remove = window.update(skdtree.getNumInstances());
+                if (idx_remove != -1)
+                    skdtree.delete(idx_remove);
+
+                // Update tree
                 long start_update = System.nanoTime();
                 skdtree.update(target);
                 long end_update = System.nanoTime();
                 long time_update = end_update - start_update;
 
-                // Extraindo as metricas coletadas do update e busca e tempo de inserção e busca
-                results.add(
-                        new Result(
-                                skdtree.stats.getMetrics(),
-                                time_update,
-                                time_search
-                        )
-                );
-                // Antes estava aqui!
-                // output.println(skdtree.stats.getMetrics() + "," + time_update + "," + time_search);
+                // Should rebuild?
+                long time_rebuild = 0;
+                if (rebuildPolicy.checkRebuild(skdtree.metricsTree)) {
+                    int[] toCopy = window.toCopy();
+                    Instances insts_window = new Instances(skdtree.getInstances(), toCopy[0], toCopy[1]);
+
+                    long start_rebuild = System.nanoTime();
+                    skdtree.buildTree(insts_window);
+                    long end_rebuild = System.nanoTime();
+
+                    countRebuild++;
+                    window.reset();
+                    time_rebuild = end_rebuild - start_rebuild;
+                }
+
+                Result result = new Result();
+                result.addMetrics(skdtree.metricsTree.getMetrics());
+                if (collectSearchMetricsOption.isSet()) {
+                    assert visitedMetrics != null;
+                    result.add("visited_nodes", visitedMetrics.getVisitedNodes());
+                }
+                result.add("time_update", time_update);
+                result.add("time_search", time_search);
+                result.add("time_rebuild", time_rebuild);
+                result.add("count_rebuild", countRebuild);
+                results.add(result);
+
                 count++;
             }
             double end_exp_time = System.nanoTime();
             double time_exp = end_exp_time - start_exp_time;
 
-            // Salvar no disco os resultados
-            // Resultado do tempo completo
             exp_time_output.println(time_exp);
-
-            // Resultado armazenados
             saveResults(output, results);
 
         } catch (StackOverflowError | Exception e) {
@@ -203,13 +294,21 @@ public class ExperimentosNKDTree extends MainTask {
         }
     }
 
+    private long maxInstances(boolean isArff) {
+        long maxInstances;
+        if (isArff)
+            maxInstances = Integer.MAX_VALUE;
+        else
+            maxInstances = 500000;
+
+        return maxInstances;
+    }
+
     private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size) {
         try {
             int count = 0;
             long maxInstances = 100000;
             NSKDtree skdtree = new NSKDtree();
-            skdtree.setWindowSize(window_size);
-            skdtree.setRebuildPolicies(rebuildPolicy);
             skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando tamanho do array
 
             System.out.println("Executando warmup...");
@@ -246,26 +345,22 @@ public class ExperimentosNKDTree extends MainTask {
         }
 
         int count = 0;
-        long maxInstances;
-        if (isArff)
-            maxInstances = Integer.MAX_VALUE;
-        else
-            maxInstances = 500000;
+        long maxInstances = maxInstances(isArff);
 
-        // Cria a instancia da árvore, e desliga a janela deslizante
         NSKDtree skdtree = new NSKDtree();
+        VisitedNodesMetrics visitedMetrics = new VisitedNodesMetrics();
         try {
-            skdtree.setRebuildPolicies(rebuildPolicy); // Usando NoRebuild
-            skdtree.setTurnOffWindow(false); // Padrão é true!
-            skdtree.setInstances(new Instances(stream.getHeader(), (int)stream.estimatedRemainingInstances())); // Cria instances vazio
+            skdtree.setInstances(new Instances(stream.getHeader(), (int)stream.estimatedRemainingInstances()));
+            if (collectSearchMetricsOption.isSet()) {
+                visitedMetrics = new VisitedNodesMetrics();
+                skdtree.setSearchMetrics(visitedMetrics);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             return;
         }
 
         List<Result> results = new ArrayList<>();
-        /// Cabeçalho
-        output.println(skdtree.stats.getHeader() + ",time_update,time_search");
         try {
             System.out.println("Executando exp insert search...");
 
@@ -287,11 +382,15 @@ public class ExperimentosNKDTree extends MainTask {
                 long end_update = System.nanoTime();
                 long time_update = end_update - start_update;
 
-                // Extraindo as metricas coletadas do update e busca e tempo de inserção e busca
-                results.add(
-                        new Result(skdtree.stats.getMetrics(), time_update, time_search)
-                );
-                // output.println(skdtree.stats.getMetrics() + "," + time_update + "," + time_search);
+                Result result = new Result();
+                result.addMetrics(skdtree.metricsTree.getMetrics());
+                if (collectSearchMetricsOption.isSet()) {
+                    assert visitedMetrics != null;
+                    result.add("visited_nodes", visitedMetrics.getVisitedNodes());
+                }
+                result.add("time_update", time_update);
+                result.add("time_search", time_search);
+                results.add(result);
                 count++;
             }
             double end_exp_time = System.nanoTime();
@@ -327,13 +426,13 @@ public class ExperimentosNKDTree extends MainTask {
         else if (policyChosenIndex == 1)
             rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
         else if (policyChosenIndex == 2)
-            rebuildPolicy = new IKDtreeRebuildPolicy(0.6, 0.5, window_size);
+            rebuildPolicy = new IKDtreeRebuildPolicy(0.6, 0.5, window_size); // Parametro da ikdtree
         else if (policyChosenIndex == 3) // Usando o tamanho da janela como base
-            rebuildPolicy = new SquareRootPolicy();
+            rebuildPolicy = new SquareRootPolicy(window_size);
         else if (policyChosenIndex == 4)
-            rebuildPolicy = new LogPolicy();
+            rebuildPolicy = new LogPolicy(window_size);
         else if (policyChosenIndex == 5) {
-            rebuildPolicy = new LogRatioPolicy();
+            rebuildPolicy = new LogRatioPolicy(window_size);
         }
         else
             rebuildPolicy = new DeletedRatioPolicy(0.3);
@@ -359,7 +458,7 @@ public class ExperimentosNKDTree extends MainTask {
                     rebuildPolicy.getClass().getSimpleName(),
                     alphaOption.getValue(),
                     window_size);
-            for (int i = 0; i <= 5; i++) {
+            for (int i = 0; i <= 3; i++) {
                 warmup(stream, rebuildPolicy, window_size);
             }
             expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
@@ -370,7 +469,7 @@ public class ExperimentosNKDTree extends MainTask {
                     datasetName,
                     "No Rebuild",
                     window_size);
-            for (int i = 0; i <= 5; i++) {
+            for (int i = 0; i <= 3; i++) {
                 warmup(stream, rebuildPolicy, window_size);
             }
             expInsertSearch(stream, isArff, datasetName);

@@ -1,11 +1,13 @@
-package moa.classifiers.lazy.neighboursearch.kdtrees;
+package moa.classifiers.lazy.neighboursearch.rebuildpolicies;
+
+import moa.classifiers.lazy.neighboursearch.NSKDtree;
+import moa.classifiers.lazy.neighboursearch.kdtrees.KDTreeStats;
 
 public class IKDtreeRebuildPolicy implements RebuildPolicy {
 
     private final double alphaBal;
     private final double alphaDel;
     private final long minimalTreeSize;
-
 
     public IKDtreeRebuildPolicy(double alphaBal, double alphaDel, long minimalTreeSize) {
         this.alphaBal = alphaBal;
@@ -14,29 +16,23 @@ public class IKDtreeRebuildPolicy implements RebuildPolicy {
     }
 
     @Override
-    public boolean checkRebuild(KDTreeStats stats) throws Exception {
-        return false;
-    }
+    public boolean checkRebuild(NSKDtree.MetricsTree stats) {
 
-    @Override
-    public boolean checkRebuild(StatsTree stats) {
-
-        if (stats.m_numNodes <= minimalTreeSize) {
+        if (stats.getTreeSize() <= minimalTreeSize) {
             return false;
         }
 
         double deleteEvaluation =
-                (double) stats.m_numNodesDeleted
-                        / stats.m_numNodes;
+                (double) stats.getNumDeletedNodes()
+                        / stats.getTreeSize();
 
         if (deleteEvaluation > alphaDel) {
             return true;
         }
 
-        // Ainda não tenho isso! Vou fazer criando no stats, pois preciso apenas da árvore global.
         double balanceEvaluation =
                 (double) stats.getChildTreeSize()
-                        / (stats.m_numNodes - 1);
+                        / (stats.getTreeSize() - 1);
 
         return balanceEvaluation > alphaBal
                 || balanceEvaluation < 1.0 - alphaBal;

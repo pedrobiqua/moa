@@ -256,7 +256,8 @@
             <!-- avoids "-SNAPSHOT" in title when using the release.xml configuration -->
             <doctitle>${project.name}</doctitle>
             <doclint>none</doclint>
-            <additionalJOption>--no-module-directories</additionalJOption>
+            <!-- Removed no-module-directories because it is not supported by the JDK 21 used for the experiments.-->
+            <!-- <additionalJOption>&#45;&#45;no-module-directories</additionalJOption>-->
           </configuration>
         </plugin>
 
