@@ -458,7 +458,7 @@ public class EvaluateNKDTree extends MainTask {
                     rebuildPolicy.getClass().getSimpleName(),
                     alphaOption.getValue(),
                     window_size);
-            for (int i = 0; i <= 3; i++) {
+            for (int i = 0; i < 3; i++) {
                 warmup(stream, rebuildPolicy, window_size);
             }
             expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
@@ -469,7 +469,7 @@ public class EvaluateNKDTree extends MainTask {
                     datasetName,
                     "No Rebuild",
                     window_size);
-            for (int i = 0; i <= 3; i++) {
+            for (int i = 0; i < 3; i++) {
                 warmup(stream, rebuildPolicy, window_size);
             }
             expInsertSearch(stream, isArff, datasetName);
