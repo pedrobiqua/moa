@@ -308,7 +308,7 @@ public class EvaluateNKDTree extends MainTask {
     private void warmup(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size) {
         try {
             int count = 0;
-            long maxInstances = 100000;
+            long maxInstances = 10000;
             NSKDtree skdtree = new NSKDtree();
             skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando
                                                                                   // tamanho do array
