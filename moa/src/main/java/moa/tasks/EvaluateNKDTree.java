@@ -76,9 +76,9 @@ public class EvaluateNKDTree extends MainTask {
             "collect_search_metrics", 'm',
             "Enable the collection of search metrics.");
 
-
     public interface SearchMetrics {
         void nodeVisited();
+
         void reset();
     }
 
@@ -166,7 +166,8 @@ public class EvaluateNKDTree extends MainTask {
     public PrintStream timeOutputExp(String dataset_name, RebuildPolicy policy) throws Exception {
         String parameters;
         if (windowSize.getValue() != 0)
-            parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName() + "_w" + windowSize.getValue();
+            parameters = "_a" + alphaOption.getValue() + "_p" + policy.getClass().getSimpleName() + "_w"
+                    + windowSize.getValue();
         else
             parameters = "_w0";
         String nameFile = dataset_name + parameters + "_time_exp.csv";
@@ -309,7 +310,8 @@ public class EvaluateNKDTree extends MainTask {
             int count = 0;
             long maxInstances = 100000;
             NSKDtree skdtree = new NSKDtree();
-            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando tamanho do array
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando
+                                                                                  // tamanho do array
 
             System.out.println("Executando warmup...");
 
@@ -339,7 +341,7 @@ public class EvaluateNKDTree extends MainTask {
         try {
             output = configOutputMetrics();
             exp_time_output = timeOutputExp(datasetName, rebuildPolicy);
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return;
         }
@@ -424,7 +426,7 @@ public class EvaluateNKDTree extends MainTask {
         if (policyChosenIndex == 0)
             rebuildPolicy = new DeletedRatioPolicy(alphaOption.getValue());
         else if (policyChosenIndex == 1)
-            rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue());
+            rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue(), window_size);
         else if (policyChosenIndex == 2)
             rebuildPolicy = new IKDtreeRebuildPolicy(0.6, 0.5, window_size); // Parametro da ikdtree
         else if (policyChosenIndex == 3) // Usando o tamanho da janela como base
@@ -433,8 +435,7 @@ public class EvaluateNKDTree extends MainTask {
             rebuildPolicy = new LogPolicy(window_size);
         else if (policyChosenIndex == 5) {
             rebuildPolicy = new LogRatioPolicy(window_size);
-        }
-        else
+        } else
             rebuildPolicy = new DeletedRatioPolicy(0.3);
         ///////////////////////////////////////////////////////
 

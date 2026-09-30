@@ -5,14 +5,18 @@ import moa.classifiers.lazy.neighboursearch.NSKDtree;
 public class HeightBalancedPolicy implements RebuildPolicy {
 
     private final double alpha;
+    private final int limitSize;
 
-    public HeightBalancedPolicy(double alpha) {
+    public HeightBalancedPolicy(double alpha, int windowSize) {
         this.alpha = alpha;
+        this.limitSize = 5 * windowSize;
     }
 
     @Override
     public boolean checkRebuild(NSKDtree.MetricsTree stats) throws Exception {
-        // Se a altura é maior que \log_{1/\alpha}(n)
+        // Limit size tree
+        if (stats.getTreeSize() >= limitSize)
+            return true;
         if (stats.getTreeSize() == 0 || stats.getTreeSize() == 1) {
             return false;
         }
