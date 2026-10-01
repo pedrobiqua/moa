@@ -76,6 +76,10 @@ public class EvaluateNKDTree extends MainTask {
             "collect_search_metrics", 'm',
             "Enable the collection of search metrics.");
 
+    public FlagOption expPerfectTreeOption = new FlagOption(
+            "expPerfectTree", 'n',
+            "Always build tree.");
+
     public interface SearchMetrics {
         void nodeVisited();
 
@@ -295,6 +299,94 @@ public class EvaluateNKDTree extends MainTask {
         }
     }
 
+    private void expPerfectTree(ExampleStream<?> stream, int window_size, boolean isArff, String datasetName) {
+        RebuildPolicy rebuildPolicy = new AlwaysRebuild();
+        // Create output files
+        PrintStream output;
+        PrintStream exp_time_output;
+        try {
+            output = configOutputMetrics();
+            exp_time_output = timeOutputExp(datasetName, rebuildPolicy);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        int count = 0;
+        long maxInstances = maxInstances(isArff);
+
+        NSKDtree skdtree = new NSKDtree();
+        VisitedNodesMetrics visitedMetrics = null;
+        try {
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size));
+            if (collectSearchMetricsOption.isSet()) {
+                visitedMetrics = new VisitedNodesMetrics();
+                skdtree.setSearchMetrics(visitedMetrics);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+        List<Result> results = new ArrayList<Result>();
+        long countRebuild = 0;
+
+        // Array List para a janela deslizante
+        Instances window = new Instances(stream.getHeader(), window_size);
+        try {
+            System.out.println("Executando exp perfect tree...");
+            double start_exp_time = System.nanoTime();
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                long time_search = 0;
+                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    long start_search = System.nanoTime();
+                    skdtree.nearestNeighbour(target);
+                    long end_search = System.nanoTime();
+                    time_search = end_search - start_search;
+                }
+
+                // Sliding window
+                if (window_size <= window.numInstances()) {
+                    window.delete(0);
+                }
+                window.add(target);
+
+                long time_rebuild = 0;
+                long start_rebuild = System.nanoTime();
+                skdtree.buildTree(window);
+                long end_rebuild = System.nanoTime();
+                time_rebuild = end_rebuild - start_rebuild;
+                countRebuild++;
+
+                // Salve results
+                Result result = new Result();
+                result.addMetrics(skdtree.metricsTree.getMetrics());
+                if (collectSearchMetricsOption.isSet()) {
+                    assert visitedMetrics != null;
+                    result.add("visited_nodes", visitedMetrics.getVisitedNodes());
+                }
+                result.add("time_update", 0);
+                result.add("time_search", time_search);
+                result.add("time_rebuild", time_rebuild);
+                result.add("count_rebuild", countRebuild);
+                results.add(result);
+                count++;
+            }
+            double end_exp_time = System.nanoTime();
+            double time_exp = end_exp_time - start_exp_time;
+
+            exp_time_output.println(time_exp);
+            saveResults(output, results);
+
+        } catch (StackOverflowError | Exception e) {
+            saveResults(output, results);
+            e.printStackTrace();
+        }
+    }
+
+
     private long maxInstances(boolean isArff) {
         long maxInstances;
         if (isArff)
@@ -454,15 +546,27 @@ public class EvaluateNKDTree extends MainTask {
         if (window_size != 0) {
             System.out.printf("%-30s %-30s %-30s %-30s\n",
                     "Dataset", "RebuildPolicy", "Parameters", "Window Size");
-            System.out.printf("%-30s %-30s %-30s %-30s\n",
-                    datasetName,
-                    rebuildPolicy.getClass().getSimpleName(),
-                    alphaOption.getValue(),
-                    window_size);
-            for (int i = 0; i < 3; i++) {
-                warmup(stream, rebuildPolicy, window_size);
+            if (expPerfectTreeOption.isSet()) {
+                System.out.printf("%-30s %-30s %-30s %-30s\n",
+                        datasetName,
+                        "Always Rebuild",
+                        alphaOption.getValue(),
+                        window_size);
+                for (int i = 0; i < 3; i++) {
+                    warmup(stream, rebuildPolicy, window_size);
+                }
+                expPerfectTree(stream, window_size, isArff, datasetName);
+            } else {
+                System.out.printf("%-30s %-30s %-30s %-30s\n",
+                        datasetName,
+                        rebuildPolicy.getClass().getSimpleName(),
+                        alphaOption.getValue(),
+                        window_size);
+                for (int i = 0; i < 3; i++) {
+                    warmup(stream, rebuildPolicy, window_size);
+                }
+                expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
             }
-            expSlidingWindow(stream, rebuildPolicy, window_size, isArff, datasetName);
         } else {
             System.out.printf("%-30s %-30s %-30s\n",
                     "Dataset", "RebuildPolicy", "Parameters");
