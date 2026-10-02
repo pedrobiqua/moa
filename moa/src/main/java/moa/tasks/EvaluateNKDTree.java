@@ -550,7 +550,7 @@ public class EvaluateNKDTree extends MainTask {
                 System.out.printf("%-30s %-30s %-30s %-30s\n",
                         datasetName,
                         "Always Rebuild",
-                        alphaOption.getValue(),
+                        "-",
                         window_size);
                 for (int i = 0; i < 3; i++) {
                     warmup(stream, rebuildPolicy, window_size);
