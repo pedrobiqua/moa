@@ -200,7 +200,8 @@ public class EvaluateNKDTree extends MainTask {
         return null;
     }
 
-    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size, boolean isArff, String datasetName) {
+    private void expSlidingWindow(ExampleStream<?> stream, RebuildPolicy rebuildPolicy, int window_size, boolean isArff,
+            String datasetName) {
 
         // Create output files
         PrintStream output;
@@ -386,7 +387,6 @@ public class EvaluateNKDTree extends MainTask {
         }
     }
 
-
     private long maxInstances(boolean isArff) {
         long maxInstances;
         if (isArff)
@@ -444,7 +444,7 @@ public class EvaluateNKDTree extends MainTask {
         NSKDtree skdtree = new NSKDtree();
         VisitedNodesMetrics visitedMetrics = new VisitedNodesMetrics();
         try {
-            skdtree.setInstances(new Instances(stream.getHeader(), (int)stream.estimatedRemainingInstances()));
+            skdtree.setInstances(new Instances(stream.getHeader(), (int) stream.estimatedRemainingInstances()));
             if (collectSearchMetricsOption.isSet()) {
                 visitedMetrics = new VisitedNodesMetrics();
                 skdtree.setSearchMetrics(visitedMetrics);
@@ -520,12 +520,14 @@ public class EvaluateNKDTree extends MainTask {
         else if (policyChosenIndex == 1)
             rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue(), window_size);
         else if (policyChosenIndex == 2)
+            rebuildPolicy = new AlphaBetaPolicy();
+        else if (policyChosenIndex == 3)
             rebuildPolicy = new IKDtreeRebuildPolicy(0.6, 0.5, window_size); // Parametro da ikdtree
-        else if (policyChosenIndex == 3) // Usando o tamanho da janela como base
+        else if (policyChosenIndex == 4) // Usando o tamanho da janela como base
             rebuildPolicy = new SquareRootPolicy(window_size);
-        else if (policyChosenIndex == 4)
+        else if (policyChosenIndex == 5)
             rebuildPolicy = new LogPolicy(window_size);
-        else if (policyChosenIndex == 5) {
+        else if (policyChosenIndex == 6) {
             rebuildPolicy = new LogRatioPolicy(window_size);
         } else
             rebuildPolicy = new DeletedRatioPolicy(0.3);
