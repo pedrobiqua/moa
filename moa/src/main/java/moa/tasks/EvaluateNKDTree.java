@@ -72,6 +72,11 @@ public class EvaluateNKDTree extends MainTask {
             "Number of instances maintained in the sliding window.",
             1000, 0, Integer.MAX_VALUE);
 
+    public IntOption limitInstances = new IntOption(
+            "limitInstances", 'l',
+            "Number of instances limit.",
+            5, 2, Integer.MAX_VALUE);
+
     public FlagOption collectSearchMetricsOption = new FlagOption(
             "collect_search_metrics", 'm',
             "Enable the collection of search metrics.");
@@ -518,7 +523,7 @@ public class EvaluateNKDTree extends MainTask {
         if (policyChosenIndex == 0)
             rebuildPolicy = new DeletedRatioPolicy(alphaOption.getValue());
         else if (policyChosenIndex == 1)
-            rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue(), window_size);
+            rebuildPolicy = new HeightBalancedPolicy(alphaOption.getValue(), window_size, limitInstances.getValue());
         else if (policyChosenIndex == 2)
             rebuildPolicy = new AlphaBetaPolicy();
         else if (policyChosenIndex == 3)

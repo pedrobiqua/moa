@@ -7,9 +7,9 @@ public class HeightBalancedPolicy implements RebuildPolicy {
     private final double alpha;
     private final int limitSize;
 
-    public HeightBalancedPolicy(double alpha, int windowSize) {
+    public HeightBalancedPolicy(double alpha, int windowSize, int times) {
         this.alpha = alpha;
-        this.limitSize = 5 * windowSize;
+        this.limitSize = times * windowSize;
     }
 
     @Override
