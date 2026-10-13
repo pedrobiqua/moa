@@ -337,7 +337,8 @@ public class EvaluateNKDTree extends MainTask {
         long countRebuild = 0;
 
         // Array List para a janela deslizante
-        Instances window = new Instances(stream.getHeader(), window_size);
+        // Instances window = new Instances(stream.getHeader(), window_size);
+        Window window = new Window(window_size);
         try {
             System.out.println("Executando exp perfect tree...");
             double start_exp_time = System.nanoTime();
@@ -354,17 +355,27 @@ public class EvaluateNKDTree extends MainTask {
                 }
 
                 // Sliding window
-                if (window_size <= window.numInstances()) {
-                    window.delete(0);
-                }
-                window.add(target);
+                int idx_remove = window.update(skdtree.getNumInstances());
+                if (idx_remove != -1)
+                    skdtree.delete(idx_remove);
 
+                // Update tree
+                skdtree.update(target); // Esse update está de enfeite, ele serve para depois eu conseguir pegar as instancias certas
+
+                // Should rebuild?
                 long time_rebuild = 0;
-                long start_rebuild = System.nanoTime();
-                skdtree.buildTree(window);
-                long end_rebuild = System.nanoTime();
-                time_rebuild = end_rebuild - start_rebuild;
-                countRebuild++;
+                if (rebuildPolicy.checkRebuild(skdtree.metricsTree)) {
+                    int[] toCopy = window.toCopy();
+                    Instances insts_window = new Instances(skdtree.getInstances(), toCopy[0], toCopy[1]);
+
+                    long start_rebuild = System.nanoTime();
+                    skdtree.buildTree(insts_window);
+                    long end_rebuild = System.nanoTime();
+
+                    countRebuild++;
+                    window.reset();
+                    time_rebuild = end_rebuild - start_rebuild;
+                }
 
                 // Salve results
                 Result result = new Result();
@@ -449,7 +460,6 @@ public class EvaluateNKDTree extends MainTask {
                 if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
                     skdtree.nearestNeighbour(target);
                 }
-                skdtree.update(target); // Atualiza a estrutura
 
                 // Sliding window
                 if (window_size <= window.numInstances()) {
@@ -596,7 +606,7 @@ public class EvaluateNKDTree extends MainTask {
                         "-",
                         window_size);
                 for (int i = 0; i < 3; i++) {
-                    warmup(stream, window_size);
+                    warmup(stream, rebuildPolicy, window_size);
                 }
                 expPerfectTree(stream, window_size, isArff, datasetName);
             } else {
