@@ -430,6 +430,42 @@ public class EvaluateNKDTree extends MainTask {
         }
     }
 
+    private void warmup(ExampleStream<?> stream, int window_size) {
+        try {
+            int count = 0;
+            long maxInstances = 10000;
+            NSKDtree skdtree = new NSKDtree();
+            skdtree.setInstances(new Instances(stream.getHeader(), window_size)); // Cria instances vazio alocando
+            // tamanho do array
+
+            Instances window = new Instances(stream.getHeader(), window_size);
+
+            System.out.println("Executando warmup com build...");
+
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
+                    skdtree.nearestNeighbour(target);
+                }
+                skdtree.update(target); // Atualiza a estrutura
+
+                // Sliding window
+                if (window_size <= window.numInstances()) {
+                    window.delete(0);
+                }
+                window.add(target);
+                skdtree.buildTree(window);
+                count++;
+            }
+
+            stream.restart();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     private void expInsertSearch(ExampleStream<?> stream, boolean isArff, String datasetName) {
         RebuildPolicy rebuildPolicy = new NoRebuild();
         // Configurações de output
@@ -560,7 +596,7 @@ public class EvaluateNKDTree extends MainTask {
                         "-",
                         window_size);
                 for (int i = 0; i < 3; i++) {
-                    warmup(stream, rebuildPolicy, window_size);
+                    warmup(stream, window_size);
                 }
                 expPerfectTree(stream, window_size, isArff, datasetName);
             } else {
