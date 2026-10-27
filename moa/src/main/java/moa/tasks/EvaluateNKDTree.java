@@ -5,7 +5,9 @@ import com.github.javacliparser.*;
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
+import moa.classifiers.lazy.neighboursearch.LinearNNSearch;
 import moa.classifiers.lazy.neighboursearch.NSKDtree;
+import moa.classifiers.lazy.neighboursearch.NearestNeighbourSearch;
 import moa.classifiers.lazy.neighboursearch.Window;
 import moa.classifiers.lazy.neighboursearch.rebuildpolicies.*;
 import moa.core.Example;
@@ -85,6 +87,12 @@ public class EvaluateNKDTree extends MainTask {
             "expPerfectTree", 'n',
             "Always build tree.");
 
+    public FlagOption expLinearSearch = new FlagOption(
+            "expLinearSearch", 't',
+            "SearchTime linear search");
+
+    private static final int BATCH_SIZE = 100_000;
+
     public interface SearchMetrics {
         void nodeVisited();
 
@@ -141,8 +149,6 @@ public class EvaluateNKDTree extends MainTask {
     private void saveResults(PrintStream output, List<Result> results) {
         if (!results.isEmpty()) {
             System.out.println("Saving the results...");
-            output.println(results.get(0).getHeader());
-
             for (Result result : results) {
                 output.println(result);
             }
@@ -238,6 +244,7 @@ public class EvaluateNKDTree extends MainTask {
         long countRebuild = 0;
 
         Window window = new Window(window_size);
+        boolean flag = true;
         try {
             System.out.println("Executando exp sliding window...");
             double start_exp_time = System.nanoTime();
@@ -290,8 +297,18 @@ public class EvaluateNKDTree extends MainTask {
                 result.add("time_rebuild", time_rebuild);
                 result.add("count_rebuild", countRebuild);
                 results.add(result);
-
                 count++;
+
+                // Salva no disco e libera memória a cada lote
+                if (results.size() >= BATCH_SIZE) {
+                    // Adiciona o header apenas uma vez
+                    if (flag) {
+                        output.println(results.get(0).getHeader());
+                        flag = false;
+                    }
+                    saveResults(output, results);
+                    results.clear();
+                }
             }
             double end_exp_time = System.nanoTime();
             double time_exp = end_exp_time - start_exp_time;
@@ -339,6 +356,7 @@ public class EvaluateNKDTree extends MainTask {
         // Array List para a janela deslizante
         // Instances window = new Instances(stream.getHeader(), window_size);
         Window window = new Window(window_size);
+        boolean flag = true;
         try {
             System.out.println("Executando exp perfect tree...");
             double start_exp_time = System.nanoTime();
@@ -360,7 +378,8 @@ public class EvaluateNKDTree extends MainTask {
                     skdtree.delete(idx_remove);
 
                 // Update tree
-                skdtree.update(target); // Esse update está de enfeite, ele serve para depois eu conseguir pegar as instancias certas
+                skdtree.update(target); // Esse update está de enfeite, ele serve para depois eu conseguir pegar as
+                                        // instancias certas
 
                 // Should rebuild?
                 long time_rebuild = 0;
@@ -390,6 +409,17 @@ public class EvaluateNKDTree extends MainTask {
                 result.add("count_rebuild", countRebuild);
                 results.add(result);
                 count++;
+
+                // Salva no disco e libera memória a cada lote
+                if (results.size() >= BATCH_SIZE) {
+                    // Adiciona o header apenas uma vez
+                    if (flag) {
+                        output.println(results.get(0).getHeader());
+                        flag = false;
+                    }
+                    saveResults(output, results);
+                    results.clear();
+                }
             }
             double end_exp_time = System.nanoTime();
             double time_exp = end_exp_time - start_exp_time;
@@ -506,6 +536,7 @@ public class EvaluateNKDTree extends MainTask {
         }
 
         List<Result> results = new ArrayList<>();
+        boolean flag = true;
         try {
             System.out.println("Executando exp insert search...");
 
@@ -515,12 +546,14 @@ public class EvaluateNKDTree extends MainTask {
                 Instance target = (Instance) ex.getData();
 
                 long time_search = 0;
-                if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() > 0) {
-                    long start_search = System.nanoTime();
-                    skdtree.nearestNeighbour(target);
-                    long end_search = System.nanoTime();
-                    time_search = end_search - start_search;
-                }
+                // Estou pensando em deixar comentado nesse experimento, depois retirar
+                // if (skdtree.getInstances() != null && skdtree.getInstances().numInstances() >
+                // 0) {
+                // long start_search = System.nanoTime();
+                // skdtree.nearestNeighbour(target);
+                // long end_search = System.nanoTime();
+                // time_search = end_search - start_search;
+                // }
 
                 long start_update = System.nanoTime();
                 skdtree.update(target);
@@ -537,6 +570,17 @@ public class EvaluateNKDTree extends MainTask {
                 result.add("time_search", time_search);
                 results.add(result);
                 count++;
+
+                // Salva no disco e libera memória a cada lote
+                if (results.size() >= BATCH_SIZE) {
+                    // Adiciona o header apenas uma vez
+                    if (flag) {
+                        output.println(results.get(0).getHeader());
+                        flag = false;
+                    }
+                    saveResults(output, results);
+                    results.clear();
+                }
             }
             double end_exp_time = System.nanoTime();
             double time_exp = end_exp_time - start_exp_time;
@@ -547,6 +591,102 @@ public class EvaluateNKDTree extends MainTask {
 
         } catch (StackOverflowError | Exception e) {
             saveResults(output, results);
+            e.printStackTrace();
+        }
+    }
+
+    private void expLinearWindow(ExampleStream<?> stream, int window_size, boolean isArff) {
+        // Create output files
+        PrintStream output;
+        try {
+            output = configOutputMetrics();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        int count = 0;
+        long maxInstances = maxInstances(isArff);
+
+        NearestNeighbourSearch linearNNSearch = new LinearNNSearch();
+        List<Result> results = new ArrayList<Result>();
+        Instances window = new Instances(stream.getHeader(), window_size);
+        boolean flag = true;
+        try {
+            System.out.println("Executando exp linear search window...");
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                linearNNSearch.setInstances(window);
+
+                long time_search = 0;
+                if (linearNNSearch.getInstances().size() > 0) {
+                    long start_search = System.nanoTime();
+                    linearNNSearch.nearestNeighbour(target);
+                    long end_search = System.nanoTime();
+                    time_search = end_search - start_search;
+                }
+
+                // Sliding window
+                if (window_size <= window.numInstances()) {
+                    window.delete(0);
+                }
+                window.add(target);
+
+                Result result = new Result();
+                result.add("time_search", time_search);
+                results.add(result);
+                count++;
+
+                // Salva no disco e libera memória a cada lote
+                if (results.size() >= BATCH_SIZE) {
+                    // Adiciona o header apenas uma vez
+                    if (flag) {
+                        output.println(results.get(0).getHeader());
+                        flag = false;
+                    }
+                    saveResults(output, results);
+                    results.clear();
+                }
+            }
+            saveResults(output, results);
+
+        } catch (StackOverflowError | Exception e) {
+            saveResults(output, results);
+            e.printStackTrace();
+        }
+    }
+
+    private void warmupLinear(ExampleStream<?> stream, int windowSize) {
+        int count = 0;
+        long maxInstances = 10000;
+
+        NearestNeighbourSearch linearNNSearch = new LinearNNSearch();
+        Instances window = new Instances(stream.getHeader(), windowSize);
+        boolean flag = true;
+        try {
+            System.out.println("Executando warmup linear...");
+            while (stream.hasMoreInstances() && count < maxInstances) {
+                Example<?> ex = stream.nextInstance();
+                Instance target = (Instance) ex.getData();
+
+                linearNNSearch.setInstances(window);
+
+                if (linearNNSearch.getInstances().size() > 0) {
+                    linearNNSearch.nearestNeighbour(target);
+                }
+
+                // Sliding window
+                if (windowSize <= window.numInstances()) {
+                    window.delete(0);
+                }
+                window.add(target);
+                count++;
+            }
+            stream.restart();
+
+        } catch (StackOverflowError | Exception e) {
             e.printStackTrace();
         }
     }
@@ -594,6 +734,20 @@ public class EvaluateNKDTree extends MainTask {
             datasetName = arffStream.arffFileOption.getFile().getName().split(".arff")[0];
         } else {
             datasetName = stream.getClass().getSimpleName();
+        }
+
+        if (expLinearSearch.isSet()) {
+            System.out.printf("%-30s %-30s %-30s\n",
+                    "Dataset", "Exp", "Window Size");
+            System.out.printf("%-30s %-30s %-30s\n",
+                    datasetName,
+                    "LinearSearch",
+                    window_size);
+            for (int i = 0; i < 3; i++) {
+                warmupLinear(stream, window_size);
+            }
+            expLinearWindow(stream, window_size, isArff);
+            return null;
         }
 
         if (window_size != 0) {
