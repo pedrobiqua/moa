@@ -93,6 +93,8 @@ public class EvaluateNKDTree extends MainTask {
 
     private static final int BATCH_SIZE = 100_000;
 
+    private boolean flag = true;
+
     public interface SearchMetrics {
         void nodeVisited();
 
@@ -149,6 +151,11 @@ public class EvaluateNKDTree extends MainTask {
     private void saveResults(PrintStream output, List<Result> results) {
         if (!results.isEmpty()) {
             System.out.println("Saving the results...");
+            // Adiciona o header apenas uma vez
+            if (flag) {
+                output.println(results.get(0).getHeader());
+                flag = false;
+            }
             for (Result result : results) {
                 output.println(result);
             }
@@ -244,7 +251,6 @@ public class EvaluateNKDTree extends MainTask {
         long countRebuild = 0;
 
         Window window = new Window(window_size);
-        boolean flag = true;
         try {
             System.out.println("Executando exp sliding window...");
             double start_exp_time = System.nanoTime();
@@ -301,11 +307,6 @@ public class EvaluateNKDTree extends MainTask {
 
                 // Salva no disco e libera memória a cada lote
                 if (results.size() >= BATCH_SIZE) {
-                    // Adiciona o header apenas uma vez
-                    if (flag) {
-                        output.println(results.get(0).getHeader());
-                        flag = false;
-                    }
                     saveResults(output, results);
                     results.clear();
                 }
@@ -356,7 +357,6 @@ public class EvaluateNKDTree extends MainTask {
         // Array List para a janela deslizante
         // Instances window = new Instances(stream.getHeader(), window_size);
         Window window = new Window(window_size);
-        boolean flag = true;
         try {
             System.out.println("Executando exp perfect tree...");
             double start_exp_time = System.nanoTime();
@@ -412,11 +412,6 @@ public class EvaluateNKDTree extends MainTask {
 
                 // Salva no disco e libera memória a cada lote
                 if (results.size() >= BATCH_SIZE) {
-                    // Adiciona o header apenas uma vez
-                    if (flag) {
-                        output.println(results.get(0).getHeader());
-                        flag = false;
-                    }
                     saveResults(output, results);
                     results.clear();
                 }
@@ -536,7 +531,6 @@ public class EvaluateNKDTree extends MainTask {
         }
 
         List<Result> results = new ArrayList<>();
-        boolean flag = true;
         try {
             System.out.println("Executando exp insert search...");
 
@@ -573,11 +567,6 @@ public class EvaluateNKDTree extends MainTask {
 
                 // Salva no disco e libera memória a cada lote
                 if (results.size() >= BATCH_SIZE) {
-                    // Adiciona o header apenas uma vez
-                    if (flag) {
-                        output.println(results.get(0).getHeader());
-                        flag = false;
-                    }
                     saveResults(output, results);
                     results.clear();
                 }
@@ -611,7 +600,6 @@ public class EvaluateNKDTree extends MainTask {
         NearestNeighbourSearch linearNNSearch = new LinearNNSearch();
         List<Result> results = new ArrayList<Result>();
         Instances window = new Instances(stream.getHeader(), window_size);
-        boolean flag = true;
         try {
             System.out.println("Executando exp linear search window...");
             while (stream.hasMoreInstances() && count < maxInstances) {
@@ -641,11 +629,6 @@ public class EvaluateNKDTree extends MainTask {
 
                 // Salva no disco e libera memória a cada lote
                 if (results.size() >= BATCH_SIZE) {
-                    // Adiciona o header apenas uma vez
-                    if (flag) {
-                        output.println(results.get(0).getHeader());
-                        flag = false;
-                    }
                     saveResults(output, results);
                     results.clear();
                 }
@@ -664,7 +647,6 @@ public class EvaluateNKDTree extends MainTask {
 
         NearestNeighbourSearch linearNNSearch = new LinearNNSearch();
         Instances window = new Instances(stream.getHeader(), windowSize);
-        boolean flag = true;
         try {
             System.out.println("Executando warmup linear...");
             while (stream.hasMoreInstances() && count < maxInstances) {
